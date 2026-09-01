@@ -88,8 +88,7 @@ class BaseSite:
         self.rma = rma
         self.groundwaterChange = groundwaterChange
         self.regionNumber = regionNumber  # climate region number
-        self.sustainabilityZone = str(sustainabilityZone)  # sustainability zone number
-
+        self.sustainabilityZone = None if sustainabilityZone is None else str(sustainabilityZone)
         if self.wafrSourcesPrimary is None:
             self.wafrSourcesPrimary = list()
         if self.wafrSourcesSecondary is None:

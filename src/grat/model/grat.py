@@ -227,7 +227,7 @@ def startAnalysis(
         transfer_goals = {}
 
     if years is None:
-        years = [range(2001, 2100)]
+        years = range(2001, 2100)
 
     for year in years:
         logging.info(f"Running GRAT for {year}")
