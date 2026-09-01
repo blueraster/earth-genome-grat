@@ -115,7 +115,8 @@ class BaseSite:
         if self.precipGrid is not None and precipDictionary is not None:
             if self.precipGrid not in precipDictionary:
                 warnings.warn(
-                    f"Site {self.gratID} has precipGrid {self.precipGrid} which is not found in the precipDictionary"
+                    f"Site {self.gratID} has precipGrid {self.precipGrid} which is not found in the precipDictionary",
+                    stacklevel=2,
                 )
                 return
 

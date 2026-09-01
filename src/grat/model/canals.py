@@ -11,7 +11,7 @@ from .funcs import sortWafrSourceByVolume
 class Canal(Basin):
     def __init__(
         self,
-        irrigationDays=[],
+        irrigationDays=None,
         **kwargs,
     ):
         """
@@ -22,16 +22,20 @@ class Canal(Basin):
         that transport WAFR from its source to identified areas or fields within each district
 
         Attributes:
-            irrigationDays (list): list of days (zero index day of water year) that use the irrigation season capacity rate.
+            irrigationDays (list): list of days (zero index day of water year) that use the irrigation season
+            capacity rate.
         """
         super().__init__(**kwargs)
 
         self.rechargeType = "Canal"
         self.maxCapacity = self._calculateDailyCapacity(
-            self.maxCapacity, irrigationDays
+            self.maxCapacity, irrigationDays if irrigationDays is not None else []
         )  # array supersedes the basin variable to account for changes in volume due to operations
 
-    def _calculateDailyCapacity(self, maxCapacity, irrigationDays=[]):
+    def _calculateDailyCapacity(self, maxCapacity, irrigationDays=None):
+
+        if irrigationDays is None:
+            irrigationDays = []
 
         capacityArray = np.full(366, fill_value=0.0)  # init empty array
         for d in range(0, 366):

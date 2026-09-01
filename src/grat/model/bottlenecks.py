@@ -11,9 +11,9 @@ class Bottleneck:
         bottleneckID: int,
         name: str = None,
         capacity: float = None,
-        wafrSources: list = [],
+        wafrSources: list = None,
         capacityIrrigation: float = None,
-        irrigationDays: list = [],
+        irrigationDays: list = None,
         **kwargs,
     ):
         """
@@ -36,12 +36,17 @@ class Bottleneck:
 
         self.bottleneckID = bottleneckID
         self.name = name
-        self.wafrSources = wafrSources  # names of the WAFR sources
+        self.wafrSources = wafrSources if wafrSources is not None else []  # names of the WAFR sources
         self.capacity = capacity
         self.capacityIrrigation = capacityIrrigation
-        self.availableThroughput = self._calculateThroughput(irrigationDays)  # volume in acre-feet per day
+        self.availableThroughput = self._calculateThroughput(
+            irrigationDays if irrigationDays is not None else []
+        )  # volume in acre-feet per day
 
-    def _calculateThroughput(self, irrigationDays=[]):
+    def _calculateThroughput(self, irrigationDays=None):
+
+        if irrigationDays is None:
+            irrigationDays = []
 
         throughPutArray = np.full(366, fill_value=0.0)  # init empty array
         for d in range(0, 366):

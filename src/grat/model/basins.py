@@ -77,20 +77,14 @@ class Basin(BaseSite):
             transferLimits: dictionary of district-level yearly transfer limits
         """
 
-        if secondaryWAFR:
-            wafrSourceList = self.wafrSourcesSecondary
-        else:
-            wafrSourceList = self.wafrSourcesPrimary
+        wafrSourceList = self.wafrSourcesSecondary if secondaryWAFR else self.wafrSourcesPrimary
 
         # check if the transfer limit has been exceeded for the district if applicable
-        if transferLimits is not None:
-            if self.district in transferLimits:
-                # check if the transfer limit has been exceeded
-                if transferLimits[self.district] <= 0:
-                    # no water can be applied to the site from the supply sources
-                    transfer_sources_for_district = transferLimits[self.district]
+        if transferLimits is not None and self.district in transferLimits and transferLimits[self.district] <= 0:
+            # no water can be applied to the site from the supply sources
+            transfer_sources_for_district = transferLimits[self.district]
 
-                    wafrSourceList = [item for item in wafrSourceList if item not in transfer_sources_for_district]
+            wafrSourceList = [item for item in wafrSourceList if item not in transfer_sources_for_district]
 
         # loop through the sources that can provide water to the site
         for wafrsrc in wafrSourceList:
@@ -135,9 +129,8 @@ class Basin(BaseSite):
                             bp.updateUsage(dowy, wafrApplied)
 
                     # update transfer limits
-                    if transferLimits is not None:
-                        if self.district in transferLimits:
-                            transferLimits[self.district] -= wafrApplied
+                    if transferLimits is not None and self.district in transferLimits:
+                        transferLimits[self.district] -= wafrApplied
         return
 
 
