@@ -22,10 +22,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/<owner>/grat"
-Repository = "https://github.com/<owner>/grat"
-Issues = "https://github.com/<owner>/grat/issues"
-Changelog = "https://github.com/<owner>/grat/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/blueraster/earth-genome-grat"
+Repository = "https://github.com/blueraster/earth-genome-grat"
+Issues = "https://github.com/blueraster/earth-genome-grat/issues"
+Changelog = "https://github.com/blueraster/earth-genome-grat/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
@@ -34,6 +34,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "mypy>=2.3.1",
+    "pre-commit>=4.6.2",
     "pytest>=9.1.1",
     "ruff>=0.16.5",
 ]
