@@ -1,11 +1,9 @@
+import copy
 import logging
 
 import pytest
 
-from grat.model import baseSite, basins, bottlenecks, canals, farms, funcs
-
-# grat.py does not exist yet in this stage of the project.
-# from grat.model import grat
+from grat.model import baseSite, basins, bottlenecks, canals, farms, funcs, grat, sorters
 from grat.model.transfers import calc_transfer_limits
 
 
@@ -553,191 +551,341 @@ class TestOFR:
         assert wafr["B"][1] == pytest.approx(9.2 - wafrApplied)
 
 
-# NOTE: grat.py has not been ported to this project yet (only the model/
-# support modules have). The test classes below depend on grat.processYear
-# and are commented out until that module exists.
-#
-# class TestModelMainRun:
-#     def setup_method(self) -> None:
-#         self.canal1 = canals.Canal(
-#             gratID="test",
-#             wafrSourcesPrimary=["A", "B"],
-#             maxCapacity=10000,
-#             percRate=600,
-#             rechargeType="Canal",
-#         )
-#         self.site1 = farms.Farm(
-#             gratID=299,
-#             crop="Corn",
-#             acres=12.5,
-#             rechargeType="On-Farm Recharge",
-#             soilType="Good",
-#             cfsLimit=5 / 1.983,
-#             bottleneckIDs=[2],
-#             wafrSourcesPrimary=["B"],
-#         )
-#         self.site2 = farms.Farm(
-#             gratID=9,
-#             crop="Wheat",
-#             acres=2.5,
-#             rechargeType="On-Farm Recharge",
-#             soilType="Good",
-#             cfsLimit=5 / 1.983,
-#             bottleneckIDs=[2],
-#             wafrSourcesPrimary=["A"],
-#         )
-#         self.site3 = basins.Basin(
-#             gratID=33,
-#             acres=2.5,
-#             rechargeType="Basin",
-#             percRate=1.2,
-#             maxCapacity=100,
-#             bottleneckIDs=[1],
-#             wafrSourcesPrimary=["A"],
-#         )
-#         self.site_list = [self.canal1, self.site3, self.site1, self.site2]
-#
-#         self.wafr = {"A": [20000.3, 20000, 20000], "B": [4.2, 9.2, 1]}
-#
-#         # need bottleneck obj to mock
-#
-#         self.bottleneckList = [
-#             bottlenecks.Bottleneck(
-#                 bottleneckID=1,
-#                 name="canal name",
-#                 capacity=595.037759907,
-#                 wafrSources=["A"],
-#             ),
-#             bottlenecks.Bottleneck(
-#                 bottleneckID=2,
-#                 name="canal name",
-#                 capacity=595.037759907,
-#                 wafrSources=["B"],
-#             ),
-#         ]
-#
-#         self.cropCalendar = {
-#             "Corn": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
-#             "Wheat": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
-#         }
-#
-#     def test_runGRAT_wafr(self):
-#         r = grat.processYear(
-#             self.site_list,
-#             self.bottleneckList,
-#             self.wafr,
-#             self.cropCalendar,
-#             precip=None,
-#         )
-#
-#         assert r["wafr"] == {
-#             "A": [9294.099999999999, 19393.8, 19393.8],
-#             "B": [0.0, 4.199999999999999, 0],
-#         }
-#
-#     def test_runGRAT_canals(self):
-#         r = grat.processYear(
-#             self.site_list,
-#             self.bottleneckList,
-#             self.wafr,
-#             self.cropCalendar,
-#             precip=None,
-#         )
-#
-#         assert sum(r["sites"][0].dailyRechargeVolumes) == 1800.0
-#
-#     def test_runGRAT_sites(self):
-#         r = grat.processYear(
-#             self.site_list,
-#             self.bottleneckList,
-#             self.wafr,
-#             self.cropCalendar,
-#             precip=None,
-#         )
-#
-#         # basin 1.2 perc rate x 3 days
-#         assert sum(r["sites"][1].dailyRechargeVolumes) == pytest.approx(3.6)
-#         # site 1 [4.2, 5. , 1.]
-#         assert sum(r["sites"][2].ofrDailyRechargeVolumes) == pytest.approx(10.2)
-#
-#
-# class TestModelMainRunMultiYear:
-#     def setup_method(self) -> None:
-#         self.canal1 = canals.Canal(
-#             gratID="test",
-#             wafrSources=["A", "B"],
-#             maxCapacity=10000,
-#             percRate=600,
-#             rechargeType="Canal",
-#         )
-#
-#         self.site1 = farms.Farm(
-#             gratID=299,
-#             crop="Corn",
-#             acres=12.5,
-#             rechargeType="OFR",
-#             soilType="Good",
-#             cfsLimit=5 / 1.983,
-#             bottleneckIDs=2,
-#             wafrSources=["B"],
-#         )
-#         self.site2 = farms.Farm(
-#             gratID=9,
-#             crop="Wheat",
-#             acres=2.5,
-#             rechargeType="OFR",
-#             soilType="Good",
-#             cfsLimit=5 / 1.983,
-#             bottleneckIDs=2,
-#             wafrSources=["A"],
-#         )
-#         self.site3 = basins.Basin(
-#             gratID=33,
-#             acres=2.5,
-#             rechargeType="Basin",
-#             percRate=1.2,
-#             maxCapacity=100,
-#             bottleneckIDs=2,
-#             wafrSources=["A"],
-#         )
-#         self.site_list = [self.canal1, self.site3, self.site1, self.site2]
-#
-#         self.wafr = {"A": [20000.3, 20000, 20000], "B": [4.2, 9.2, 1]}
-#         self.wafr2 = {"A": [20000.3, 19.1, 20000], "B": [4.2, 9.2, 1]}
-#
-#         # need bottleneck obj to mock
-#         self.bottleneckList = [
-#             bottlenecks.Bottleneck(
-#                 bottleneckID=2,
-#                 name="canal name",
-#                 capacity=595.03775990781,
-#             )
-#         ]
-#
-#         self.cropCalendar = {
-#             "Corn": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
-#             "Wheat": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
-#         }
-#
-#     def test_processYear(self):
-#
-#         sites2 = copy.deepcopy(self.site_list)
-#         bottleneckList2 = copy.deepcopy(self.bottleneckList)
-#
-#         year_1 = grat.processYear(
-#             self.site_list,
-#             self.bottleneckList,
-#             self.wafr,
-#             self.cropCalendar,
-#             precip=None,
-#         )
-#
-#         year_2 = grat.processYear(
-#             sites2, bottleneckList2, self.wafr2, self.cropCalendar, precip=None
-#         )
-#
-#         # years should not be equal
-#         assert year_1["sites"] != year_2["sites"]
+class TestModelMainRun:
+    def setup_method(self) -> None:
+        self.canal1 = canals.Canal(
+            gratID="test",
+            wafrSourcesPrimary=["A", "B"],
+            maxCapacity=10000,
+            percRate=600,
+            rechargeType="Canal",
+        )
+        self.site1 = farms.Farm(
+            gratID=299,
+            crop="Corn",
+            acres=12.5,
+            rechargeType="On-Farm Recharge",
+            soilType="Good",
+            cfsLimit=5 / 1.983,
+            bottleneckIDs=[2],
+            wafrSourcesPrimary=["B"],
+        )
+        self.site2 = farms.Farm(
+            gratID=9,
+            crop="Wheat",
+            acres=2.5,
+            rechargeType="On-Farm Recharge",
+            soilType="Good",
+            cfsLimit=5 / 1.983,
+            bottleneckIDs=[2],
+            wafrSourcesPrimary=["A"],
+        )
+        self.site3 = basins.Basin(
+            gratID=33,
+            acres=2.5,
+            rechargeType="Basin",
+            percRate=1.2,
+            maxCapacity=100,
+            bottleneckIDs=[1],
+            wafrSourcesPrimary=["A"],
+        )
+        self.site_list = [self.canal1, self.site3, self.site1, self.site2]
+
+        self.wafr = {"A": [20000.3, 20000, 20000], "B": [4.2, 9.2, 1]}
+
+        # need bottleneck obj to mock
+
+        self.bottleneckList = [
+            bottlenecks.Bottleneck(
+                bottleneckID=1,
+                name="canal name",
+                capacity=595.037759907,
+                wafrSources=["A"],
+            ),
+            bottlenecks.Bottleneck(
+                bottleneckID=2,
+                name="canal name",
+                capacity=595.037759907,
+                wafrSources=["B"],
+            ),
+        ]
+
+        self.cropCalendar = {
+            "Corn": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
+            "Wheat": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
+        }
+
+    def test_runGRAT_wafr(self):
+        r = grat.processYear(
+            self.site_list,
+            self.bottleneckList,
+            self.wafr,
+            self.cropCalendar,
+            precip=None,
+        )
+
+        assert r["wafr"] == {
+            "A": [9294.099999999999, 19393.8, 19393.8],
+            "B": [0.0, 4.199999999999999, 0],
+        }
+
+    def test_runGRAT_canals(self):
+        r = grat.processYear(
+            self.site_list,
+            self.bottleneckList,
+            self.wafr,
+            self.cropCalendar,
+            precip=None,
+        )
+
+        assert sum(r["sites"][0].dailyRechargeVolumes) == 1800.0
+
+    def test_runGRAT_sites(self):
+        r = grat.processYear(
+            self.site_list,
+            self.bottleneckList,
+            self.wafr,
+            self.cropCalendar,
+            precip=None,
+        )
+
+        # basin 1.2 perc rate x 3 days
+        assert sum(r["sites"][1].dailyRechargeVolumes) == pytest.approx(3.6)
+        # site 1 [4.2, 5. , 1.]
+        assert sum(r["sites"][2].ofrDailyRechargeVolumes) == pytest.approx(10.2)
+
+
+class TestModelMainRunMultiYear:
+    def setup_method(self) -> None:
+        self.canal1 = canals.Canal(
+            gratID="test",
+            wafrSources=["A", "B"],
+            maxCapacity=10000,
+            percRate=600,
+            rechargeType="Canal",
+        )
+
+        self.site1 = farms.Farm(
+            gratID=299,
+            crop="Corn",
+            acres=12.5,
+            rechargeType="OFR",
+            soilType="Good",
+            cfsLimit=5 / 1.983,
+            bottleneckIDs=2,
+            wafrSources=["B"],
+        )
+        self.site2 = farms.Farm(
+            gratID=9,
+            crop="Wheat",
+            acres=2.5,
+            rechargeType="OFR",
+            soilType="Good",
+            cfsLimit=5 / 1.983,
+            bottleneckIDs=2,
+            wafrSources=["A"],
+        )
+        self.site3 = basins.Basin(
+            gratID=33,
+            acres=2.5,
+            rechargeType="Basin",
+            percRate=1.2,
+            maxCapacity=100,
+            bottleneckIDs=2,
+            wafrSources=["A"],
+        )
+        self.site_list = [self.canal1, self.site3, self.site1, self.site2]
+
+        self.wafr = {"A": [20000.3, 20000, 20000], "B": [4.2, 9.2, 1]}
+        self.wafr2 = {"A": [20000.3, 19.1, 20000], "B": [4.2, 9.2, 1]}
+
+        # need bottleneck obj to mock
+        self.bottleneckList = [
+            bottlenecks.Bottleneck(
+                bottleneckID=2,
+                name="canal name",
+                capacity=595.03775990781,
+            )
+        ]
+
+        self.cropCalendar = {
+            "Corn": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
+            "Wheat": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
+        }
+
+    def test_processYear(self):
+
+        sites2 = copy.deepcopy(self.site_list)
+        bottleneckList2 = copy.deepcopy(self.bottleneckList)
+
+        year_1 = grat.processYear(
+            self.site_list,
+            self.bottleneckList,
+            self.wafr,
+            self.cropCalendar,
+            precip=None,
+        )
+
+        year_2 = grat.processYear(sites2, bottleneckList2, self.wafr2, self.cropCalendar, precip=None)
+
+        # years should not be equal
+        assert year_1["sites"] != year_2["sites"]
+
+
+class TestSorters:
+    def setup_method(self) -> None:
+        class SorterExample:
+            def __init__(self, gratID, acres, rechargeType, rsi=0, scenarioA=None):
+                self.gratID = gratID
+                self.acres = acres
+                self.rechargeType = rechargeType
+                self.rsi = rsi
+                self.scenarioA = scenarioA
+
+            def __repr__(self):
+                return f"{self.gratID}"
+
+        a = SorterExample("A", 10.2, "OFR", rsi=77, scenarioA=None)
+        b = SorterExample("B", 12.2, "OFR", rsi=23, scenarioA="Z")
+        c = SorterExample("C", 1.2, "Basin", rsi=50, scenarioA="A")
+        d = SorterExample("D", 13.2, None, rsi=7, scenarioA="Z")
+        e = SorterExample("E", 12.2, "OFR", rsi=19, scenarioA="A")
+
+        self.listofsites = [a, b, c, d, e]
+
+    def test_sortByType(self):
+        s = self.listofsites.copy()
+        s.sort(key=sorters.rechargeTypeOrder)
+        site_order = [o.gratID for o in s]
+        assert site_order == ["C", "A", "B", "E", "D"]
+
+    def test_sortByVariable(self):
+        s = sorters.sort_by_variable(self.listofsites, "acres")
+        site_order = [o.gratID for o in s]
+        assert site_order == ["C", "A", "B", "E", "D"]
+
+    def test_sortByVariable2(self):
+
+        s = sorters.sort_by_variable(self.listofsites, "rsi", True)
+        site_order = [o.gratID for o in s]
+        assert site_order == ["A", "C", "B", "E", "D"]
+
+    def test_sortByMultiVariable(self):
+
+        s = sorters.sort_by_variables(self.listofsites, (("acres", True), ("rsi", True)))
+        site_order = [o.gratID for o in s]
+        assert site_order == ["D", "B", "E", "A", "C"]
+
+    def test_sortSitesBasic(self):
+
+        s = sorters.sortSites(self.listofsites, sortRule=None)
+        site_order = [o.gratID for o in s]
+        assert site_order == ["C", "A", "B", "E", "D"]
+
+    def test_sortSitesScenarioA(self):
+
+        s = sorters.sortSites(self.listofsites, sortRule="A")
+        site_order = [o.gratID for o in s]
+        assert site_order == ["C", "B", "E", "A", "D"]
+
+
+class TestSortersCanals:
+    def setup_method(self) -> None:
+        class SorterExample:
+            def __init__(self, gratID, acres, rechargeType, index=0, scenarioA=None):
+                self.gratID = gratID
+                self.acres = acres
+                self.rechargeType = rechargeType
+                self.index = index
+                self.scenarioA = scenarioA
+
+            def __repr__(self):
+                return f"{self.gratID}"
+
+        a = SorterExample("A", 0, "Canal", index=77, scenarioA=None)
+        b = SorterExample("B", 12.2, "OFR", index=23, scenarioA="Z")
+        c = SorterExample("C", 1.2, "Basin", index=50, scenarioA="A")
+        d = SorterExample("D", 0, "Canal", index=50, scenarioA="A")
+        e = SorterExample("E", 15, "OFR", index=50, scenarioA="A")
+
+        self.listofsites = [a, b, c, d, e]
+
+    def test_sortByType(self):
+        s = self.listofsites.copy()
+        s.sort(key=sorters.rechargeTypeOrder)
+        site_order = [o.gratID for o in s]
+        assert site_order == ["A", "D", "C", "B", "E"]
+
+    def test_sortTypeByVariable(self):
+        s = sorters.sort_by_variable(self.listofsites, "acres", reverse=True)
+        s.sort(key=sorters.rechargeTypeOrder)
+        site_order = [o.gratID for o in s]
+        assert site_order == ["A", "D", "C", "E", "B"]
+
+
+class TestSortersInLieu:
+    def setup_method(self) -> None:
+        class SorterExample:
+            def __init__(
+                self,
+                gratID,
+                acres,
+                rechargeType,
+                index=0,
+                scenarioA=None,
+                groundwaterChange=0,
+                crop=None,
+                inLieuCrop=None,
+                rma=None,
+            ):
+                self.gratID = gratID
+                self.acres = acres
+                self.rechargeType = rechargeType
+                self.index = index
+                self.scenarioA = scenarioA
+                self.groundwaterChange = groundwaterChange
+                self.crop = crop
+                self.inLieuCrop = inLieuCrop
+                self.rma = rma
+
+            def __repr__(self):
+                return f"{self.gratID}"
+
+        a = SorterExample(
+            "A",
+            0,
+            "OFR",
+            index=77,
+            groundwaterChange=10,
+            inLieuCrop="Corn",
+            crop="Apple",
+            rma=2,
+        )
+        b = SorterExample("B", 12.2, "OFR", index=23, groundwaterChange=5, crop="Apple", rma=1)
+        c = SorterExample("C", 1.2, "OFR", index=50, groundwaterChange=-10, inLieuCrop="Corn", rma=1)
+        d = SorterExample(
+            "D",
+            0,
+            "OFR",
+            index=50,
+            groundwaterChange=-5,
+            inLieuCrop="Corn",
+            crop="Apple",
+            rma=2,
+        )
+        e = SorterExample("E", 15, "OFR", index=50, groundwaterChange=2, inLieuCrop="Corn")
+
+        self.listofsites = [a, b, c, d, e]
+
+    def test_sortIL(self):
+        _, sites_il, _, _ = sorters.groupSitesByRechargeType(self.listofsites, rmaSort=False)
+        site_order = [o.gratID for o in sites_il]
+        assert site_order == ["C", "D", "E", "A"]
+
+    def test_sortIL_rma(self):
+        _, sites_il, _, _ = sorters.groupSitesByRechargeType(self.listofsites, rmaSort=True)
+        site_order = [o.gratID for o in sites_il]
+        assert site_order == ["C", "D", "A", "E"]
 
 
 class TestIL:
