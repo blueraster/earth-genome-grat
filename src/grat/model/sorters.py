@@ -1,4 +1,5 @@
 # functions that sort a list of sites (canals, basins, farms)
+import logging
 import operator
 
 
@@ -143,10 +144,10 @@ def groupSitesByRechargeType(siteList, useInLieu=True, useOFR=True, rmaSort=Fals
     # Groundwater change used to sort in lieu sites. Within each RMA zone the
     # Lowest numbers (i.e most negative) have the highest priority.
     if rmaSort is True:
-        print("Sorting in-lieu sites by RMA rank")
+        logging.info("Sorting in-lieu sites by RMA rank")
         inLieuSites = sort_by_variables(inLieuSites_unordered, (("rma", False), ("groundwaterChange", False)))
     else:
-        print("Sorting in-lieu sites by groundwaterChange only")
+        logging.info("Sorting in-lieu sites by groundwaterChange only")
 
         inLieuSites = sort_by_variable(inLieuSites_unordered, "groundwaterChange", False)
 
