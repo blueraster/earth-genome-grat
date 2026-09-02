@@ -59,9 +59,13 @@ class BaseSite:
         self.gratID = gratID
         self.acres = acres
         self.rechargeType = rechargeType
+        if wafrSourcesPrimary is None and "wafrSources" in kwargs:
+            wafrSourcesPrimary = kwargs["wafrSources"]
         self.wafrSourcesPrimary = wafrSourcesPrimary
         self.wafrSourcesSecondary = wafrSourcesSecondary
 
+        if bottleneckIDs is not None and not isinstance(bottleneckIDs, (list, tuple, set)):
+            bottleneckIDs = [bottleneckIDs]
         self.bottleneckIDs = bottleneckIDs
 
         # init empty default values
