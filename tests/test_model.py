@@ -127,6 +127,52 @@ class TestBasin:
 
         assert self.b.usedVolume[1] == pytest.approx(wafrApplied)
 
+    def test_useBasin_transferLimitExhausted(self):
+        self.b.wafrSourcesPrimary = ["B"]
+        self.b.district = "D1"
+
+        wafr = {"A": [1.3, 4, 3.5], "B": [4.2, 9.2, 1]}
+
+        bottleneckList = [
+            bottlenecks.Bottleneck(
+                bottleneckID=2,
+                name="canal name",
+                capacity=5.949,
+                wafrSources=["B"],
+            )
+        ]
+
+        transferLimits = {"D1": 0, "transfer_wafr_sources": {"D1": "B"}}
+
+        self.b.useBasin(1, wafr, bottleneckList, transferLimits=transferLimits)
+
+        assert self.b.usedVolume[1] == 0
+        assert wafr["B"][1] == 9.2
+
+    def test_useBasin_transferLimitNotExhausted(self):
+        self.b.wafrSourcesPrimary = ["B"]
+        self.b.district = "D1"
+
+        wafr = {"A": [1.3, 4, 3.5], "B": [4.2, 9.2, 1]}
+
+        bottleneckList = [
+            bottlenecks.Bottleneck(
+                bottleneckID=2,
+                name="canal name",
+                capacity=5.949,
+                wafrSources=["B"],
+            )
+        ]
+
+        transferLimits = {"D1": 100, "transfer_wafr_sources": {"D1": "B"}}
+
+        self.b.useBasin(1, wafr, bottleneckList, transferLimits=transferLimits)
+        wafrApplied = 5.949
+
+        assert self.b.usedVolume[1] == pytest.approx(wafrApplied)
+        assert wafr["B"][1] == pytest.approx(9.2 - wafrApplied)
+        assert transferLimits["D1"] == pytest.approx(100 - wafrApplied)
+
 
 class TestBottleneck:
     def setup_method(self) -> None:
@@ -549,6 +595,48 @@ class TestOFR:
         assert self.ofr.ofrUsedVolume[1] == pytest.approx(wafrApplied)
         assert self.ofr.ofrUnusedVolume[1] == pytest.approx(33.975)
         assert wafr["B"][1] == pytest.approx(9.2 - wafrApplied)
+
+    def test_useSite_transferLimitExhausted(self):
+        self.ofr.wafrSourcesPrimary = ["B"]
+        self.ofr.district = "D1"
+
+        wafr = {"A": [1.3, 4, 3.5], "B": [4.2, 9.2, 1]}
+        self.ofr.precip[1] = 2.1
+
+        transferLimits = {"D1": 0, "transfer_wafr_sources": {"D1": "B"}}
+
+        self.ofr.useSite(
+            1,
+            wafr,
+            self.bottleneckList,
+            cropCalendar=self.cropCalendar,
+            transferLimits=transferLimits,
+        )
+
+        assert self.ofr.ofrUsedVolume[1] == 0
+        assert wafr["B"][1] == 9.2
+
+    def test_useSite_transferLimitNotExhausted(self):
+        self.ofr.wafrSourcesPrimary = ["B"]
+        self.ofr.district = "D1"
+
+        wafr = {"A": [1.3, 4, 3.5], "B": [4.2, 9.2, 1]}
+        self.ofr.precip[1] = 2.1
+
+        transferLimits = {"D1": 100, "transfer_wafr_sources": {"D1": "B"}}
+
+        self.ofr.useSite(
+            1,
+            wafr,
+            self.bottleneckList,
+            cropCalendar=self.cropCalendar,
+            transferLimits=transferLimits,
+        )
+        wafrApplied = 5.949
+
+        assert self.ofr.ofrUsedVolume[1] == pytest.approx(wafrApplied)
+        assert wafr["B"][1] == pytest.approx(9.2 - wafrApplied)
+        assert transferLimits["D1"] == pytest.approx(100 - wafrApplied)
 
 
 class TestModelMainRun:

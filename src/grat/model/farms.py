@@ -193,8 +193,10 @@ class Farm(BaseSite):
 
         # check if the transfer limit has been exceeded for the district if applicable
         if transferLimits is not None and self.district in transferLimits and transferLimits[self.district] <= 0:
-            # no water can be applied to the site from the supply sources
-            transfer_sources_for_district = transferLimits[self.district]
+            # no water can be applied to the site from the sources subject to the transfer limit
+            transfer_sources_for_district = transferLimits.get("transfer_wafr_sources", {}).get(self.district, [])
+            if isinstance(transfer_sources_for_district, str):
+                transfer_sources_for_district = [transfer_sources_for_district]
 
             wafrSourceList = [item for item in wafrSourceList if item not in transfer_sources_for_district]
 
