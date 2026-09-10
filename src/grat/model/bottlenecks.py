@@ -1,35 +1,51 @@
-"""
-Delivery limits to collection of sites
-"""
+"""Delivery limits shared by a group of sites."""
 
 import numpy as np
 
 
 class Bottleneck:
+    """A daily delivery limit shared by every site behind it.
+
+    A bottleneck caps how much water can reach the sites that name it on a given
+    day, no matter how much WAFR is available. Each bottleneck is associated with
+    one or more WAFR sources and only limits water from those.
+
+    Sites name the bottlenecks that restrict them via their `bottleneck_ids`. A site
+    behind several bottlenecks is limited by the tightest of them.
+
+    Capacity is tracked as a running daily budget: `available_throughput` starts at
+    the day's capacity and is drawn down by `update_usage` as sites take water.
+
+    Attributes:
+        available_throughput: throughput still unused (acre-feet), one entry per day
+            of the water year. Drawn down as sites take water, and may go negative.
+    """
+
     def __init__(
         self,
         bottleneck_id: int,
-        name: str = None,
-        capacity: float = None,
-        wafr_sources: list = None,
-        capacity_irrigation: float = None,
-        irrigation_days: list = None,
+        name: str | None = None,
+        capacity: float | None = None,
+        wafr_sources: list | None = None,
+        capacity_irrigation: float | None = None,
+        irrigation_days: list | None = None,
         **kwargs,
     ):
-        """
-        Defines the bottleneck object that restricts daily flow to groups of sites. Each bottleneck is associated
-        with one or more WAFR sources. When provided, irrigation_days + capacity_irrigation modifies the
-        default daily bottleneck rate value during the days that are in the irrigation season.
+        """Build a bottleneck.
 
         Args:
-            bottleneck_id:  bottleneck identifier
-            name: name of bottleneck (optional)
-            capacity: default limit in acre-feet per day.
-            wafr_sources: name of the WAFR sources that supply water
-            capacity_irrigation: limit in acre-feet per day during irrigation season.
-            irrigation_days: list of days (zero index day of water year) that use the irrigation season capacity rate.
-            **kwargs: Optional additional parameters
-
+            bottleneck_id: bottleneck identifier, matched against a site's
+                `bottleneck_ids`.
+            name: human-readable name of the bottleneck.
+            capacity: throughput limit outside the irrigation season
+                (acre-feet per day).
+            wafr_sources: names of the WAFR sources this bottleneck restricts. Water
+                from any other source passes unrestricted.
+            capacity_irrigation: throughput limit during the irrigation season
+                (acre-feet per day).
+            irrigation_days: zero-indexed days of the water year that use
+                `capacity_irrigation` instead of `capacity`.
+            **kwargs: additional attributes, set directly on the instance.
         """
         # catch all extra kwargs provided to class instance
         self.__dict__.update(kwargs)  # catch all for all unknown kwargs
@@ -43,8 +59,15 @@ class Bottleneck:
             irrigation_days if irrigation_days is not None else []
         )  # volume in acre-feet per day
 
-    def _calculate_throughput(self, irrigation_days=None):
+    def _calculate_throughput(self, irrigation_days: list | None = None):
+        """Build the daily throughput budget for the whole water year.
 
+        Args:
+            irrigation_days: zero-indexed days that use the irrigation season capacity.
+
+        Returns:
+            Throughput limit (acre-feet per day) for each day of the water year.
+        """
         if irrigation_days is None:
             irrigation_days = []
 
@@ -58,25 +81,25 @@ class Bottleneck:
         return throughput_array
 
     def update_usage(self, day: int, amount: float):
-        """
-        Updates the bottleneck available throughput by subtracting the volume used by the site
+        """Charge a volume against the bottleneck's remaining throughput for a day.
 
         Args:
-            day: zero-indexed day of the water year
-            amount: usage volume (AF) to subtract
+            day: zero-indexed day of the water year.
+            amount: volume delivered through the bottleneck (acre-feet).
         """
         self.available_throughput[day] -= amount
         return
 
     def get_available_throughput(self, day: int):
-        """
-        Volume available to pass through the bottleneck
+        """Return the volume that can still pass through the bottleneck on a day.
 
         Args:
-            day: zero-indexed day of the water year
+            day: zero-indexed day of the water year.
 
         Returns:
-            daily_throughput: throughput volume (AF) for a given bottleneck and day
+            Remaining throughput (acre-feet). Clamped to zero, so an
+            over-subscribed bottleneck reports no capacity rather than a
+            negative one.
         """
         daily_throughput = self.available_throughput[day]
         if daily_throughput <= 0:
@@ -84,37 +107,46 @@ class Bottleneck:
         return daily_throughput
 
     def __repr__(self):
+        """Return every attribute of the bottleneck, including the full daily array."""
         return f"{self.__dict__}"
 
 
 # operations on list of bottlenecks
-def get_bottlenecks(bottleneck_list, bottleneck_ids, wafr_source):
-    """
-    Returns the object that matches the specific bottleneck_id and WAFR source
+def get_bottlenecks(bottleneck_list: list, bottleneck_ids, wafr_source: str):
+    """Select the bottlenecks that restrict a given site's delivery from a source.
+
+    A bottleneck matches when its identifier is one the site names *and* it
+    restricts the WAFR source in question.
+
     Args:
-        bottleneck_list: list of bottleneck objects
-        bottleneck_ids: identifier for the bottlenecks
-        wafr_source: name of the WAFR source that supplies water through the bottleneck
+        bottleneck_list: every bottleneck in the system.
+        bottleneck_ids: the identifiers named by the site. `None` means the site is
+            behind no bottlenecks.
+        wafr_source: name of the WAFR source supplying the water.
 
-    Returns: list of bottleneck objects that match the conditions
-
+    Returns:
+        The matching bottlenecks, empty if the site is unrestricted for this source.
     """
-    try:
-        return [b for b in bottleneck_list if b.bottleneck_id in bottleneck_ids and wafr_source in b.wafr_sources]
-    except KeyError:
+    if bottleneck_ids is None:
         return []
+    return [b for b in bottleneck_list if b.bottleneck_id in bottleneck_ids and wafr_source in b.wafr_sources]
 
 
-def bottleneck_capacity_logger(bottleneck_list):
-    """
-    Daily array of the bottlenecks that reached capacity
+def bottleneck_capacity_logger(bottleneck_list: list):
+    """Report which bottlenecks ran out of capacity, day by day.
+
+    A bottleneck counts as having hit its limit on any day where its remaining
+    throughput has fallen to zero or below.
+
     Args:
-        bottleneck_list: list of bottleneck objects
+        bottleneck_list: every bottleneck in the system.
 
-    Returns: array containing the list of bottleneck ids that reached capacity per day
-
+    Returns:
+        One list per day, each holding the identifiers of the bottlenecks that hit
+        their limit that day. Note that this is 365 entries long while the
+        throughput arrays it reads hold 366, so a limit hit on the last day of a
+        leap year raises `IndexError`.
     """
-
     capacity_hit_log = [[] for _ in range(365)]  # assumes multiple bottlenecks per day
 
     for b in bottleneck_list:

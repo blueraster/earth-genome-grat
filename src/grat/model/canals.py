@@ -1,6 +1,4 @@
-"""
-Conveyance system
-"""
+"""Conveyance system."""
 
 import numpy as np
 
@@ -9,21 +7,40 @@ from .utils import sort_wafr_source_by_volume
 
 
 class Canal(Basin):
+    """A conveyance structure that recharges groundwater through its bed.
+
+    Conveyance refers to the built structures (canals, sloughs) and natural ones
+    (rivers, streams) that transport WAFR from its source to fields within each
+    district. They are modelled as recharge sites in their own right, percolating
+    to groundwater the same way a basin does.
+
+    A canal extends `Basin` with two differences:
+
+    - `max_capacity` is a daily array rather than a single number, so capacity can
+      vary across the year with operations.
+    - During the irrigation season the canal is assumed already full for delivery,
+      so its capacity is set to zero and it accepts no WAFR. That season's
+      percolation is accounted for in a separate model.
+
+    Note:
+        `get_canal_volume_available` is deliberately separate from the inherited
+        `Basin.get_basin_volume_available` rather than overriding it: the two use
+        different capacity calculations, and `Basin.use_basin` must keep calling
+        the basin one.
+    """
+
     def __init__(
         self,
         irrigation_days=None,
         **kwargs,
     ):
-        """
-        Canal class. Expands the basin class with some additional behavior and logic.
-        Max capacity is an array of daily values (n=365) to account for changes in volume due to operations
+        """Build a canal.
 
-        Conveyance refers to the built (canals, sloughs, etc) and natural structures (rivers, streams, etc.)
-        that transport WAFR from its source to identified areas or fields within each district
-
-        Attributes:
-            irrigation_days (list): list of days (zero index day of water year) that use the irrigation season
-            capacity rate.
+        Args:
+            irrigation_days: zero-indexed days of the water year in the irrigation
+                season, during which the canal accepts no WAFR.
+            **kwargs: all other `Basin` and `BaseSite` arguments. `max_capacity` is
+                given as a single value (acre-feet) and expanded into a daily array.
         """
         super().__init__(**kwargs)
 
@@ -32,8 +49,19 @@ class Canal(Basin):
             self.max_capacity, irrigation_days if irrigation_days is not None else []
         )  # array supersedes the basin variable to account for changes in volume due to operations
 
-    def _calculate_daily_capacity(self, max_capacity, irrigation_days=None):
+    def _calculate_daily_capacity(self, max_capacity, irrigation_days: list | None = None):
+        """Expand a single capacity figure into a daily array for the water year.
 
+        Irrigation-season days are set to zero capacity, so the canal accepts no
+        WAFR on those days.
+
+        Args:
+            max_capacity: canal capacity outside the irrigation season (acre-feet).
+            irrigation_days: zero-indexed days in the irrigation season.
+
+        Returns:
+            Capacity (acre-feet) for each day of the water year.
+        """
         if irrigation_days is None:
             irrigation_days = []
 
@@ -47,29 +75,35 @@ class Canal(Basin):
         return capacity_array
 
     def get_canal_volume_available(self, day: int):
-        """
-        Canal volume available is the max capacity minus the current capacity plus the perc rate
+        """Return how much water the canal could accept on a day.
+
+        Headroom is the day's capacity less the standing volume, plus the volume
+        that will percolate away that day. Never negative.
 
         Args:
-            day: zero-indexed day of the water year
+            day: zero-indexed day of the water year.
 
-        Returns: volume that could be added to the canal in acre-feet
-
+        Returns:
+            Volume the canal could accept (acre-feet). Zero during the irrigation
+            season, when the canal is assumed already full for delivery.
         """
-
         if self.max_capacity[day] == 0:
             return 0  # no capacity on this day (irrigation season). Assumed full (perc accounted in different model)
         return max(self.max_capacity[day] - self.current_capacity + self.perc_rate, 0)
 
     def use_canal(self, day: int, wafr: dict, source: str, usable_volume_from_source: float):
-        """
-        Apply water to the canal on a specific day using a proportionally allocated volume from a specific WAFR source
+        """Apply an already-allocated volume from one WAFR source to this canal.
+
+        The allocation is decided by `proportionally_fill`; this method applies the
+        smaller of that allocation and the canal's own headroom.
 
         Args:
-            day: zero-index day of the water year
-            wafr: water available for recharge dictionary
-            source: name of the source that is supplying water
-            usable_volume_from_source: usable volume from the WAFR source
+            day: zero-indexed day of the water year.
+            wafr: volume still available (acre-feet) per day, keyed by WAFR source
+                name. **Mutated**: water applied here is subtracted from it.
+            source: name of the source supplying the water.
+            usable_volume_from_source: volume this canal has been allocated from
+                that source (acre-feet).
         """
         volume_available_from_wafr = wafr[source][day]
         if volume_available_from_wafr > 0 and usable_volume_from_source > 0:
@@ -79,6 +113,7 @@ class Canal(Basin):
             self.set_wafr_log(source, wafr_applied)
 
     def __repr__(self):
+        """Return every attribute of the canal, including the full daily arrays."""
         return f"{self.__dict__}"
 
 
@@ -89,26 +124,22 @@ def proportionally_fill(
     selected_wafr: str,
     secondary_wafr: bool = False,
 ):
-    """
-    Proportionally fills canals with water from a specific WAFR source
+    """Share one WAFR source's water across the canals it can reach.
 
-    Filters canal list to just the ones that can receive water from the selected WAFR source, sums up
-    the total volume remaining in the canals. If this number is larger than the volume
-    from the source, then the available volume gets split proportionally (using the ratio of the volume each canal
-    could accept) and applied into the canal system. If there is enough water available, all the canals get filled
+    Unlike basins and farms, which are filled in priority order until the water
+    runs out, canals are filled together: each one receives a share of the source's
+    volume in proportion to how much headroom it has. If the source has enough
+    water for everyone, every canal fills.
 
     Args:
-        day: zero-indexed day of the water year
-        canal_list: list of canal objects
-        wafr: dictionary of WAFR organized by source and day
-        selected_wafr: name of the WAFR source to proportionally fill canals
-        secondary_wafr: controls which list of sources should be used
-
-
-    Returns:
-
+        day: zero-indexed day of the water year.
+        canal_list: canals to consider. Those the source cannot reach are skipped.
+        wafr: volume still available (acre-feet) per day, keyed by WAFR source
+            name. **Mutated**: water applied is subtracted from it.
+        selected_wafr: name of the WAFR source being shared out.
+        secondary_wafr: match canals on their secondary (out-of-district) sources
+            instead of their primary (in-district) ones.
     """
-
     volume_available_from_wafr = wafr[selected_wafr][day]  # volume available from this WAFR source
 
     if volume_available_from_wafr > 0:
@@ -135,19 +166,20 @@ def proportionally_fill(
 
 
 def fill_canals(canal_list: list, day: int, wafr: dict, secondary_wafr: bool = False):
-    """
-    Loops through each of the WAFR sources and applies water to the canals
+    """Fill the canals from every WAFR source that has water.
+
+    Sources are worked through largest first, so the most plentiful source is
+    shared out before the scarcer ones. Each is distributed by
+    `proportionally_fill`.
 
     Args:
-        canal_list: list of canal object
-        day: zero-indexed day of the water year
-        wafr: dictionary of water available for recharge
-        secondary_wafr: controls which list of sources should be used
-
-    Returns:
-
+        canal_list: canals to fill.
+        day: zero-indexed day of the water year.
+        wafr: volume still available (acre-feet) per day, keyed by WAFR source
+            name. **Mutated**: water applied is subtracted from it.
+        secondary_wafr: match canals on their secondary (out-of-district) sources
+            instead of their primary (in-district) ones.
     """
-
     wafr_order = sort_wafr_source_by_volume(wafr, day)  # sort WAFR sources by volume currently available
 
     for wafr_source in wafr_order:
@@ -157,16 +189,14 @@ def fill_canals(canal_list: list, day: int, wafr: dict, secondary_wafr: bool = F
 
 
 def canals_update_daily_values(canal_list: list, day: int):
-    """
-    Loops through the canals in the list and calls the update_daily_values method to move perc_rate volume to
-        groundwater recharge
+    """Drain a day's percolation from every canal into groundwater recharge.
+
+    Call once per day after the canals have been filled. See
+    `Basin.update_daily_values`, which canals inherit.
 
     Args:
-        canal_list: list of canal objects
-        day: zero-indexed day of the water year
-
-    Returns:
-
+        canal_list: canals to drain.
+        day: zero-indexed day of the water year.
     """
     for c in canal_list:
         c.update_daily_values(day)  # update daily values

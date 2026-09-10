@@ -1,23 +1,41 @@
+"""Yearly caps on how much transferred water each district may receive."""
+
 import logging
 
 
 def calc_transfer_limits(wafr, transfer_wafr_source_list, district_transfer_goals=None):
-    """
-    Calculates the district/sustainability zone transfer limits based on water available for transfer
-    and the user's defined transfer settings
+    """Work out each district's transfer budget for the year.
+
+    A transfer goal is expressed either as a share of what the district's source
+    yields over the year, or as a flat volume. Either way the district must first
+    clear a threshold: if its source does not carry enough water over the year,
+    the district gets a budget of zero.
+
+    The budgets returned are consumed during the run — each site charges the
+    water it takes against its own district — so once a district's budget reaches
+    zero its sites stop drawing from the sources that budget governs.
 
     Args:
-        wafr: wafr dictionary for a single year
-        transfer_wafr_source_list: list of sources to transfer water from
-        district_transfer_goals: dictionary of transfer goals for each district/zone
-            - key: district or sustainability zone name
-            - value: dictionary with either "PERCENT" or "ACREFEET" as keys
-                - PERCENT: percentage of the total available water to transfer
-                - ACREFEET: total volume to transfer
-                - THRESHOLD: volume per district to determine if there is enough water to transfer
+        wafr: volume available (acre-feet) per day for a single year, keyed by
+            WAFR source name.
+        transfer_wafr_source_list: which WAFR source supplies each district,
+            keyed by district or sustainability zone name. Despite the name this
+            is a mapping, not a list.
+        district_transfer_goals: transfer goal per district or sustainability
+            zone. Each value is a mapping that may hold:
+
+            - `"THRESHOLD"`: minimum yearly volume (acre-feet) the source must
+              carry before any transfer is allowed. Required — a district
+              without one gets a zero budget.
+            - `"PERCENT"`: share of the source's yearly volume to transfer, as a
+              fraction. Takes precedence over `"ACREFEET"`.
+            - `"ACREFEET"`: flat volume to transfer (acre-feet), used when no
+              percentage is given.
 
     Returns:
-
+        Transfer budget (acre-feet) per district, plus a
+        `"transfer_wafr_sources"` entry holding `transfer_wafr_source_list` so
+        that later stages can tell which sources a district's budget governs.
     """
     if district_transfer_goals is None:
         district_transfer_goals = {}

@@ -1,16 +1,28 @@
-# functions that sort a list of sites (canals, basins, farms)
+"""Ordering rules that decide which sites get water first.
+
+The model allocates water strictly in list order, so the sort applied here
+determines priority: a site earlier in the list takes what it can before later
+sites are offered anything.
+"""
+
 import logging
 import operator
 
 
 def recharge_type_order(site):
-    """
-    Set the sort priority order depending on recharge type
+    """Return the rank used to group sites by recharge type when sorting.
+
+    Ranks canals 1, basins 2, on-farm recharge 3, and anything else 4. Applied
+    last in `sort_sites` so that sites of the same type stay together.
+
+    Note that this ordering is not what decides which type is watered first —
+    `grat.use_sites` fixes that order independently, and it differs.
+
     Args:
-        site: individual site with recharge_type attribute
+        site: any site with a `recharge_type` attribute.
 
     Returns:
-
+        Rank from 1 to 4.
     """
     if site.recharge_type == "Canal":
         return 1
@@ -22,13 +34,23 @@ def recharge_type_order(site):
 
 
 def none_aware_attrgetter(attr, reverse=False):
-    """
-    https://stackoverflow.com/questions/61452346/python-attrgetter-that-handles-none-values-and-can-be-used-in-a-loop
+    """Build a sort key for an attribute that may be `None` on some sites.
+
+    Sorting on an attribute that is `None` for some sites raises a `TypeError`,
+    because `None` cannot be compared with a number. This wraps the attribute in
+    a tuple whose first element sorts the `None`s as a group, so they always come
+    last regardless of sort direction, and the real values are compared only
+    against each other.
+
+    Adapted from https://stackoverflow.com/questions/61452346
+
     Args:
-        attr:
+        attr: name of the attribute to sort on.
+        reverse: whether the caller will pass `reverse=True` to `sorted`/`sort`.
+            Needed so that `None` values stay at the end either way.
 
     Returns:
-
+        A key function suitable for `sorted` or `list.sort`.
     """
     getter = operator.attrgetter(attr)
 
@@ -42,35 +64,39 @@ def none_aware_attrgetter(attr, reverse=False):
 
 
 def sort_by_variable(list_of_sites, variable, reverse=False):
-    """
-    Sorts a list of site objects by a single variable
+    """Sort sites by a single attribute.
 
-    NOTE: use sort_by_variables() for multiples
+    Sites whose value is `None` are placed last in either direction. Use
+    `sort_by_variables` to sort on more than one attribute.
 
     Args:
-        list_of_sites: list of site objects
-        variable: object property name to use to sort
-        reverse: boolean if the order should be ascending or descending
+        list_of_sites: sites to sort.
+        variable: name of the attribute to sort on.
+        reverse: sort descending rather than ascending.
 
-    Returns: sorted list of objects
+    Returns:
+        A new sorted list; the input is left unchanged.
     """
-
     return sorted(list_of_sites, key=none_aware_attrgetter(variable, reverse), reverse=reverse)
 
 
 def sort_by_variables(list_of_sites, specs):
-    """
-    Sorts list of objects by attribute properties. Specify property names in least to most restrictive order
+    """Sort sites by several attributes at once.
 
-    sort_by_variables([site_a(), site_b()...], (("acres", True), ("index", True))
+    Works by sorting repeatedly, least significant attribute first, relying on
+    Python's sort being stable. List the attributes in the order you want them
+    applied — most significant first::
 
-    https://docs.python.org/3/howto/sorting.html
+        sort_by_variables(sites, (("acres", True), ("index", True)))
+
+    See https://docs.python.org/3/howto/sorting.html
+
     Args:
-        list_of_sites: site objects
-        specs: tuples with the object attribute + boolean if the sort is reversed
+        list_of_sites: sites to sort. **Mutated**: sorted in place.
+        specs: `(attribute_name, reverse)` pairs, most significant first.
 
     Returns:
-
+        The same list, sorted.
     """
     for attr, reverse in reversed(specs):
         list_of_sites.sort(key=none_aware_attrgetter(attr, reverse), reverse=reverse)
@@ -78,19 +104,27 @@ def sort_by_variables(list_of_sites, specs):
 
 
 def sort_sites(sites, sort_rule=None):
-    """
-    Orders sites objects by various scenarios by sorting multiple object properties.
-    The order the Object properties to sort by is important (most restrictive -> least).
-    Always sort final list by recharge type last.
+    """Put sites into the order the model will process them.
+
+    Applies the chosen scenario's tie-breakers first, then sorts by recharge type
+    last so it dominates: sites are grouped by type, with the scenario deciding
+    the order within each group.
+
+    Each site's `sort_index` is set to its one-based position in the result.
 
     Args:
-        sites: list of unordered site object
-        sort_rule: name of the scenario's sort rule
+        sites: sites to order. **Mutated**: sorted in place, and each site's
+            `sort_index` is assigned.
+        sort_rule: which scenario to apply. `None` ranks by RSI score
+            then area. `"RMA"` ranks by RMA rank first. `"A"` is a
+            test scenario that ranks by the `scenario_a` attribute first.
 
-    Returns: sorted list of sites
+    Returns:
+        The sites in processing order.
 
+    Raises:
+        Exception: if `sort_rule` is not one of the supported values.
     """
-
     if sort_rule is None:
         # sort by rsi score, acres and then finally by recharge type
         s = sort_by_variables(sites, (("rsi", True), ("acres", True)))
@@ -120,15 +154,27 @@ def sort_sites(sites, sort_rule=None):
 
 
 def group_sites_by_recharge_type(site_list, use_in_lieu=True, use_ofr=True, rma_sort=False):
-    """
-    Splits site_list into sublists by type (basins, in-lieu, on farm recharge)
-    Args:
-        site_list: list of objects (basins, farms)
-        use_in_lieu: boolean if in-lieu sites should be included
-        use_ofr: boolean if on farm recharge sites should be included
-        rma_sort: boolean if the in-lieu sites should be sorted by rma rank
-    Returns: list of basins, list of in-lieu sites, list of ofr sites, list of canals
+    """Split the sites into the four lists the daily loop works through.
 
+    A farm can appear in both the in-lieu and on-farm lists if it has both a
+    `crop` and an `in_lieu_crop`; the two recharge methods are tracked separately
+    on the site, so it can receive water as each.
+
+    In-lieu sites are re-sorted here rather than left in the order `sort_sites`
+    produced: they are ordered by groundwater change, lowest first.
+
+    Args:
+        site_list: all sites, already in processing order.
+        use_in_lieu: include in-lieu sites. When `False` the in-lieu list comes
+            back empty and no in-lieu recharge happens.
+        use_ofr: include on-farm sites. When `False` the on-farm list comes back
+            empty.
+        rma_sort: order in-lieu sites by RMA rank first, then by groundwater
+            change within each rank. When `False`, order by
+            groundwater change alone.
+
+    Returns:
+        Four lists: basins, in-lieu sites, on-farm sites, canals.
     """
     basin_list = [s for s in site_list if s.recharge_type == "Basin"]
     canal_list = [s for s in site_list if s.recharge_type == "Canal"]
@@ -159,14 +205,18 @@ def group_sites_by_recharge_type(site_list, use_in_lieu=True, use_ofr=True, rma_
 
 
 def mlrp_sorter(sites, gsa_target_percentage=None):
-    """
-    Sorts sites by MLRP rank per district and changes the crop type until the acreage is met.
+    """Convert the best-ranked land in each agency to the MLRP crop.
+
+    Works through each agency's sites best-ranked first, switching each to the
+    "MLRP" crop until that agency's target acreage is used up. Converted sites
+    have their in-lieu crop cleared, so they take part in on-farm recharge only.
+
     Args:
-        sites: list of site objects
-        gsa_target_percentage: dictionary of gda MLRP target percentages {'gda': 0.5, 'gsa2': 0.3}
-
-    Returns:
-
+        sites: sites to consider. **Mutated**: sorted in place, and the `crop` and
+            `in_lieu_crop` of the converted sites are reassigned.
+        gsa_target_percentage: share of each agency's total acreage to convert,
+            keyed by agency, e.g. `{"gsa1": 0.5, "gsa2": 0.3}`. An agency absent
+            from the mapping converts nothing.
     """
     # handle the case where the gsa_target_percentage is None
     if gsa_target_percentage is None:
