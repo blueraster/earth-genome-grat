@@ -5,18 +5,18 @@ Main logic for water allocation for canals, basins, sites
 import logging
 import pickle
 
-from grat.model.basins import basinsUpdateDailyValues, fillBasins
-from grat.model.canals import canalsUpdateDailyValues, fillCanals
-from grat.model.farms import useFarms
-from grat.model.sorters import groupSitesByRechargeType
+from grat.model.basins import basins_update_daily_values, fill_basins
+from grat.model.canals import canals_update_daily_values, fill_canals
+from grat.model.farms import use_farms
+from grat.model.sorters import group_sites_by_recharge_type
 from grat.model.transfers import calc_transfer_limits
-from grat.model.utils import checkWafrAvailability, timer_func
+from grat.model.utils import check_wafr_availability, timer_func
 
 # TODO - these are hard-code to remove need for config.py but need to be moved OSGRAT
 transfer_supply_sources = {}
 
 
-def useSites(
+def use_sites(
     day,
     wafr,
     canalList,
@@ -46,12 +46,12 @@ def useSites(
 
     """
     # use primary wafr sources to fill canals first
-    fillCanals(canalList, day, wafr, secondaryWAFR=False)
+    fill_canals(canalList, day, wafr, secondaryWAFR=False)
 
     # use primary wafr sources (in-district) to fill in-lieu, basins, on-farm-recharge
-    if checkWafrAvailability(wafr, day):
+    if check_wafr_availability(wafr, day):
         # use in-lieu sites
-        useFarms(
+        use_farms(
             inLieuSites,
             day,
             wafr,
@@ -62,10 +62,10 @@ def useSites(
         )
 
         # use basins
-        fillBasins(basinList, day, wafr, bottlenecks, transferLimits=transferLimits)
+        fill_basins(basinList, day, wafr, bottlenecks, transferLimits=transferLimits)
 
         # use on-farm recharge sites
-        useFarms(
+        use_farms(
             ofrSites,
             day,
             wafr,
@@ -76,12 +76,12 @@ def useSites(
         )
 
     # use secondary wafr sources to fill canals if needed
-    fillCanals(canalList, day, wafr, secondaryWAFR=True)
+    fill_canals(canalList, day, wafr, secondaryWAFR=True)
 
     # use secondary wafr sources (out-off district) to fill in-lieu, basins, on-farm-recharge
-    if checkWafrAvailability(wafr, day):
+    if check_wafr_availability(wafr, day):
         # use in-lieu sites
-        useFarms(
+        use_farms(
             inLieuSites,
             day,
             wafr,
@@ -93,7 +93,7 @@ def useSites(
         )
 
         # use basins
-        fillBasins(
+        fill_basins(
             basinList,
             day,
             wafr,
@@ -103,7 +103,7 @@ def useSites(
         )
 
         # use on-farm recharge sites
-        useFarms(
+        use_farms(
             ofrSites,
             day,
             wafr,
@@ -114,14 +114,14 @@ def useSites(
             transferLimits=transferLimits,
         )
 
-    canalsUpdateDailyValues(canalList, day)
-    basinsUpdateDailyValues(basinList, day)
+    canals_update_daily_values(canalList, day)
+    basins_update_daily_values(basinList, day)
 
     return
 
 
 @timer_func
-def processYear(
+def process_year(
     siteList,
     bottleneckList,
     wafr,
@@ -158,14 +158,16 @@ def processYear(
     num_days = len(wafr[list(wafr.keys())[0]])
 
     # update the precipArray for all the sites
-    [s.calcPrecip(precip) for s in siteList if s.rechargeType != "Canal"]
+    [s.calc_precip(precip) for s in siteList if s.rechargeType != "Canal"]
 
-    basinList, inLieuSites, ofrSites, canalList = groupSitesByRechargeType(siteList, useInLieu, useOFR, rmaSort=rmaSort)
+    basinList, inLieuSites, ofrSites, canalList = group_sites_by_recharge_type(
+        siteList, useInLieu, useOFR, rmaSort=rmaSort
+    )
 
     # loop through each day in the year
     for day in range(0, num_days):
         # use canals, in-lieu farms, fill basins, use on-farm-recharge
-        useSites(
+        use_sites(
             day,
             wafr,
             canalList,
@@ -178,16 +180,15 @@ def processYear(
             transferLimits,
         )
 
-    yearResults = {
+    return {
         "sites": siteList,
         "wafr": wafr,
         "bottlenecks": bottleneckList,
         "transferLimits": transferLimits,
     }
-    return yearResults
 
 
-def startAnalysis(
+def start_analysis(
     rawSites,
     rawWAFR,
     rawBottlenecks,
@@ -250,7 +251,7 @@ def startAnalysis(
             transfer_goals,
         )
 
-        processYear(
+        process_year(
             sites,
             bottlenecks,
             wafr,

@@ -10,7 +10,7 @@ from . import bottlenecks
 from .base_site import BaseSite
 
 
-def turnoutLimitConversion(cfsRate):
+def turnout_limit_conversion(cfsRate):
     """
     Converts turnout limit in cubic-feet per second to acre-feet per day
     Args:
@@ -18,8 +18,7 @@ def turnoutLimitConversion(cfsRate):
 
     Returns: volume in acre-feet per day
     """
-    afPerDay = cfsRate * 1.983
-    return afPerDay
+    return cfsRate * 1.983
 
 
 class Farm(BaseSite):
@@ -47,7 +46,7 @@ class Farm(BaseSite):
 
         self.soilType = soilType
         self.cfsLimit = cfsLimit if cfsLimit is not None else 15  # default rate of water that can be applied to a site
-        self.flowLimit = np.full(366, float(turnoutLimitConversion(self.cfsLimit)))
+        self.flowLimit = np.full(366, float(turnout_limit_conversion(self.cfsLimit)))
 
         # # in lieu recharge attributes
         self.inLieuCrop = inLieuCrop
@@ -61,7 +60,7 @@ class Farm(BaseSite):
 
         self.usedPrecip = np.full(366, 0.0)  # empty array to store precip that gets "used"
 
-    def getSiteVolume(self, day: int, cropCalendar: dict, inlieu: bool = False):
+    def get_site_volume(self, day: int, cropCalendar: dict, inlieu: bool = False):
         """
         Return the potential volume of water a site could receive on a given day
 
@@ -81,15 +80,13 @@ class Farm(BaseSite):
         else:
             cropAcceptedRate = cropCalendar[self.crop][self.soilType][day] * self.acres - self.ofrUsedVolume[day]
 
-        siteVolume = (
+        return (
             cropAcceptedRate
             - self.precip[day]  # removes volume from the daily precip
             + self.usedPrecip[day]  # avoids double counting precip
         )
 
-        return siteVolume
-
-    def setUnused(self, day: int, volume: float, inlieu: bool = False):
+    def set_unused(self, day: int, volume: float, inlieu: bool = False):
         """
         Sets the unused volume (acre-feet) of a site for a specific day
         Args:
@@ -103,7 +100,7 @@ class Farm(BaseSite):
         else:
             self.ofrUnusedVolume[day] = volume
 
-    def setUsedVolume(self, day: int, newVolume: float, inlieu: bool = False):
+    def set_used_volume(self, day: int, newVolume: float, inlieu: bool = False):
         """
         Adds the water applied (acre-feet) to the existing usedVolume array value for the date
         Args:
@@ -119,7 +116,7 @@ class Farm(BaseSite):
 
         return
 
-    def setDailyRecharge(self, day: int, newVolume: float, inlieu: bool = False):
+    def set_daily_recharge(self, day: int, newVolume: float, inlieu: bool = False):
         """
         Update the daily recharge by adding the new volume to the existing value
         Args:
@@ -132,7 +129,7 @@ class Farm(BaseSite):
         else:
             self.ofrDailyRechargeVolumes[day] += newVolume
 
-    def useSite(
+    def use_site(
         self,
         dowy: int,
         wafr: dict,
@@ -171,25 +168,25 @@ class Farm(BaseSite):
             # calculate the amount of water that can come from WAFR
             try:
                 volumeAvailableFromWafr = wafr[wafrsrc][dowy]
-            except Exception:
+            except KeyError:
                 volumeAvailableFromWafr = 0
 
             # if volume from WAFR == zero skip
             # no water is available from source so nothing can be applied to the site
             if volumeAvailableFromWafr > 0:
                 # how much water can be applied to the crop type for this day?
-                availableSiteVolume = max(self.getSiteVolume(dowy, cropCalendar, inlieu=inLieu), 0)
+                availableSiteVolume = max(self.get_site_volume(dowy, cropCalendar, inlieu=inLieu), 0)
 
                 if availableSiteVolume <= 0:
                     break
 
                 # determine how much water can be delivered through the bottlenecks
                 # get the bottlepoint object for the wafr source that restrict delivery to this site
-                bottlePoints = bottlenecks.getBottlenecks(bottleneckList, self.bottleneckIDs, wafrsrc)
+                bottlePoints = bottlenecks.get_bottlenecks(bottleneckList, self.bottleneckIDs, wafrsrc)
 
                 if len(bottlePoints) > 0:
                     # get the minimum available throughput from the bottlenecks
-                    availableThroughput = min([bp.getAvailableThroughput(dowy) for bp in bottlePoints])
+                    availableThroughput = min([bp.get_available_throughput(dowy) for bp in bottlePoints])
                 else:
                     availableThroughput = math.inf
 
@@ -203,15 +200,15 @@ class Farm(BaseSite):
                 # update values only if water is applied
                 if wafrApplied > 0:
                     # update the used volume array
-                    self.setUsedVolume(dowy, wafrApplied, inlieu=inLieu)
+                    self.set_used_volume(dowy, wafrApplied, inlieu=inLieu)
 
                     # update the unused volume array
                     unused_vol = availableSiteVolume - wafrApplied
 
-                    self.setUnused(dowy, unused_vol, inlieu=inLieu)
+                    self.set_unused(dowy, unused_vol, inlieu=inLieu)
 
                     # set daily recharge array
-                    self.setDailyRecharge(dowy, wafrApplied, inlieu=inLieu)
+                    self.set_daily_recharge(dowy, wafrApplied, inlieu=inLieu)
 
                     # subtract water applied from wafr so it is unavailable
                     wafr[wafrsrc][dowy] -= wafrApplied
@@ -220,7 +217,7 @@ class Farm(BaseSite):
                     self.flowLimit[dowy] -= wafrApplied
 
                     # update wafr source log
-                    self.setWafrLog(wafrsrc, wafrApplied)
+                    self.set_wafr_log(wafrsrc, wafrApplied)
 
                     # updated usedPrecip
                     self.usedPrecip[dowy] = self.precip[dowy]
@@ -228,7 +225,7 @@ class Farm(BaseSite):
                     # update bottlenecks usage
                     if len(bottlePoints) > 0:
                         for bp in bottlePoints:
-                            bp.updateUsage(dowy, wafrApplied)
+                            bp.update_usage(dowy, wafrApplied)
 
                     # update transfer limits
                     if transferLimits is not None and self.district in transferLimits:
@@ -239,7 +236,7 @@ class Farm(BaseSite):
         return f"{self.__dict__}"
 
 
-def useFarms(
+def use_farms(
     siteList,
     day,
     wafr,
@@ -265,7 +262,7 @@ def useFarms(
 
     """
     for s in siteList:
-        s.useSite(
+        s.use_site(
             day,
             wafr,
             bottleneckList,

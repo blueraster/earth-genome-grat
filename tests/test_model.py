@@ -13,8 +13,8 @@ class TestBaseSite:
 
     def test_setDailyRecharge(self):
 
-        self.bs.setDailyRecharge(5, 12.13)
-        self.bs.setDailyRecharge(5, 7.3)
+        self.bs.set_daily_recharge(5, 12.13)
+        self.bs.set_daily_recharge(5, 7.3)
 
         assert self.bs.dailyRechargeVolumes[5] == 19.43
 
@@ -25,24 +25,24 @@ class TestBaseSite:
             "GRID444": [0.1] * 365,
         }
 
-        self.bs.calcPrecip(precipDict)  # daily values should be 1.25
+        self.bs.calc_precip(precipDict)  # daily values should be 1.25
         assert sum(self.bs.precip) == 456.25
 
         self.bs.precipGrid = "GRID123"
-        self.bs.calcPrecip(precipDict)
+        self.bs.calc_precip(precipDict)
         assert sum(self.bs.precip) == 2664.5
 
     def test_setDailyRechargeLeapYear(self):
 
-        self.bs.setDailyRecharge(5, 12.13)
-        self.bs.setDailyRecharge(364, 1.1)
-        self.bs.setDailyRecharge(365, 5.02)
+        self.bs.set_daily_recharge(5, 12.13)
+        self.bs.set_daily_recharge(364, 1.1)
+        self.bs.set_daily_recharge(365, 5.02)
         assert sum(self.bs.dailyRechargeVolumes) == 18.25
 
     def test_wafrLog(self):
-        self.bs.setWafrLog("Unit", 12.3)
-        self.bs.setWafrLog("Test", 33.2)
-        self.bs.setWafrLog("Test", 55)
+        self.bs.set_wafr_log("Unit", 12.3)
+        self.bs.set_wafr_log("Test", 33.2)
+        self.bs.set_wafr_log("Test", 55)
         assert self.bs.wafrLog == {"Unit": 12.3, "Test": 88.2}
 
 
@@ -62,11 +62,11 @@ class TestBasin:
     def test_updateDailyValues(self):
 
         self.b.currentCapacity = 200.2  # default on init is zero
-        self.b.updateDailyValues(0)
+        self.b.update_daily_values(0)
 
         assert self.b.currentCapacity == pytest.approx(80.2, abs=0.005)
 
-        self.b.updateDailyValues(1)
+        self.b.update_daily_values(1)
 
         assert self.b.currentCapacity == 0
 
@@ -78,11 +78,11 @@ class TestBasin:
     def test_getSiteVolume(self):
         self.b.currentCapacity = 89.12
         self.b.precip[10] = 20
-        assert self.b.getBasinVolumeAvailable(10) == pytest.approx(60.88, abs=0.005)
+        assert self.b.get_basin_volume_available(10) == pytest.approx(60.88, abs=0.005)
 
     def test_setUsedVolume(self):
         self.b.currentCapacity = 77.1
-        self.b.setUsedVolume(14, 12.89)
+        self.b.set_used_volume(14, 12.89)
         assert self.b.usedVolume[14] == 12.89
         assert self.b.currentCapacity == 89.99
 
@@ -101,7 +101,7 @@ class TestBasin:
             )
         ]
 
-        self.b.useBasin(1, wafr, bottleneckList)
+        self.b.use_basin(1, wafr, bottleneckList)
         wafrApplied = 5.949
 
         assert self.b.usedVolume[1] == pytest.approx(wafrApplied)
@@ -122,7 +122,7 @@ class TestBasin:
             )
         ]
 
-        self.b.useBasin(1, wafr, bottleneckList)
+        self.b.use_basin(1, wafr, bottleneckList)
         wafrApplied = 167.5
 
         assert self.b.usedVolume[1] == pytest.approx(wafrApplied)
@@ -144,7 +144,7 @@ class TestBasin:
 
         transferLimits = {"D1": 0, "transfer_wafr_sources": {"D1": "B"}}
 
-        self.b.useBasin(1, wafr, bottleneckList, transferLimits=transferLimits)
+        self.b.use_basin(1, wafr, bottleneckList, transferLimits=transferLimits)
 
         assert self.b.usedVolume[1] == 0
         assert wafr["B"][1] == 9.2
@@ -166,7 +166,7 @@ class TestBasin:
 
         transferLimits = {"D1": 100, "transfer_wafr_sources": {"D1": "B"}}
 
-        self.b.useBasin(1, wafr, bottleneckList, transferLimits=transferLimits)
+        self.b.use_basin(1, wafr, bottleneckList, transferLimits=transferLimits)
         wafrApplied = 5.949
 
         assert self.b.usedVolume[1] == pytest.approx(wafrApplied)
@@ -196,46 +196,46 @@ class TestBottleneck:
         assert self.bottleneckA.availableThroughput[10] == pytest.approx(6.84, abs=0.005)
 
         # update usage
-        self.bottleneckA.updateUsage(10, 2.22)
+        self.bottleneckA.update_usage(10, 2.22)
         assert self.bottleneckA.availableThroughput[10] == pytest.approx(4.62, abs=0.005)
 
     def test_getAvailableThroughput(self):
-        t = self.bottleneckA.getAvailableThroughput(15)
+        t = self.bottleneckA.get_available_throughput(15)
         assert t == pytest.approx(6.84, abs=0.005)
 
     def test_getAvailableThroughputCapacityHit(self):
         # update usage
-        self.bottleneckA.updateUsage(15, 19.1)
-        t = self.bottleneckA.getAvailableThroughput(15)
+        self.bottleneckA.update_usage(15, 19.1)
+        t = self.bottleneckA.get_available_throughput(15)
         assert t == 0
 
     def test_getBottleneckFromIDWafr(self):
-        shouldBeA = bottlenecks.getBottlenecks(self.bottleneckList, [1], "SourceA")[0]
+        shouldBeA = bottlenecks.get_bottlenecks(self.bottleneckList, [1], "SourceA")[0]
         assert shouldBeA.name == "test canal"
 
     def test_getBottleneckFromIDWaf2(self):
-        shouldBeB = bottlenecks.getBottlenecks(self.bottleneckList, [1, 2], "SourceB")[0]
+        shouldBeB = bottlenecks.get_bottlenecks(self.bottleneckList, [1, 2], "SourceB")[0]
         assert shouldBeB.name == "second canal"
 
     def test_getBottleneckFromIDWafrNone(self):
-        shouldBeNone = bottlenecks.getBottlenecks(self.bottleneckList, [2], "SourceA")
+        shouldBeNone = bottlenecks.get_bottlenecks(self.bottleneckList, [2], "SourceA")
         assert shouldBeNone == []
 
     def test_bottleneckCapacityLogger(self):
-        self.bottleneckA.updateUsage(15, 19.1)
-        self.bottleneckA.updateUsage(20, 50)
-        self.bottleneckB.updateUsage(20, 20)
-        self.bottleneckB.updateUsage(1, 50)
+        self.bottleneckA.update_usage(15, 19.1)
+        self.bottleneckA.update_usage(20, 50)
+        self.bottleneckB.update_usage(20, 20)
+        self.bottleneckB.update_usage(1, 50)
 
-        capLogger = bottlenecks.bottleneckCapacityLogger(self.bottleneckList)
+        capLogger = bottlenecks.bottleneck_capacity_logger(self.bottleneckList)
         assert capLogger[15] == [1]
         assert capLogger[20] == [1, 2]
         assert capLogger[50] == []
 
     def test_getAvailableThroughputIrrigationDate(self):
-        nonIrr = self.bottleneckB.getAvailableThroughput(199)
+        nonIrr = self.bottleneckB.get_available_throughput(199)
         assert nonIrr == pytest.approx(2.39943, abs=0.005)
-        irr = self.bottleneckB.getAvailableThroughput(200)
+        irr = self.bottleneckB.get_available_throughput(200)
         assert irr == pytest.approx(100, abs=0.005)
 
 
@@ -264,7 +264,7 @@ class TestCanalObject:
         assert self.c.dailyRechargeVolumes[i] == 0
 
         # set to a new volume
-        self.c.setDailyRecharge(i, new_vol)
+        self.c.set_daily_recharge(i, new_vol)
 
         # check the new daily recharge volume
         assert self.c.dailyRechargeVolumes[i] == new_vol
@@ -276,11 +276,11 @@ class TestCanalObject:
         i = 29  # index day
 
         # set daily recharge to a different value
-        self.c.setDailyRecharge(i, 124.1931)
+        self.c.set_daily_recharge(i, 124.1931)
 
         # set curr capacity to a non-zero number
         self.c.currentCapacity = 23.123
-        self.c.updateDailyValues(i)
+        self.c.update_daily_values(i)
 
         # check the new daily recharge volume
         assert self.c.dailyRechargeVolumes[i] == 147.3161
@@ -290,7 +290,7 @@ class TestCanalObject:
         i = 48  # index day
         v = 19902.12  # value
 
-        self.c.setUsedVolume(i, v)
+        self.c.set_used_volume(i, v)
 
         # check the new daily recharge volume
         assert self.c.usedVolume[i] == v
@@ -307,7 +307,7 @@ class TestCanalObject:
 
         # use canal when below cap
         i = 2
-        self.c.useCanal(i, wafr, "test_source", 9.23)
+        self.c.use_canal(i, wafr, "test_source", 9.23)
 
         assert self.c.usedVolume[i] == 9.23
 
@@ -320,7 +320,7 @@ class TestCanalObject:
 
         # use canal above cap
         i = 4
-        self.c.useCanal(i, wafr, "test_source", 100000)
+        self.c.use_canal(i, wafr, "test_source", 100000)
         assert self.c.usedVolume[i] == 10600
 
 
@@ -343,12 +343,12 @@ class TestMockCanal:
 
         # loop through the days
         for i in range(0, 7):
-            canals.fillCanals(self.canalList, i, self.wafr)
-            canals.canalsUpdateDailyValues(self.canalList, i)
+            canals.fill_canals(self.canalList, i, self.wafr)
+            canals.canals_update_daily_values(self.canalList, i)
 
         # use canal again
-        canals.fillCanals(self.canalList, 7, self.wafr)
-        canals.canalsUpdateDailyValues(self.canalList, 7)
+        canals.fill_canals(self.canalList, 7, self.wafr)
+        canals.canals_update_daily_values(self.canalList, 7)
 
         assert list(self.c.usedVolume)[0:8] == [
             178.4,
@@ -404,8 +404,8 @@ class TestMockCanalProportionalFill:
 
         # loop through the days
         for i in range(0, 7):
-            canals.fillCanals(self.canalList, i, self.wafr)
-            canals.canalsUpdateDailyValues(self.canalList, i)
+            canals.fill_canals(self.canalList, i, self.wafr)
+            canals.canals_update_daily_values(self.canalList, i)
 
     def test_use_canal_wafr(self):
 
@@ -463,8 +463,8 @@ class TestMockCanalProportional:
 
         # loop through the days
         for i in range(0, 2):
-            canals.fillCanals(self.canalList, i, self.wafr)
-            canals.canalsUpdateDailyValues(self.canalList, i)
+            canals.fill_canals(self.canalList, i, self.wafr)
+            canals.canals_update_daily_values(self.canalList, i)
 
     def test_use_canal_day1(self):
 
@@ -528,8 +528,8 @@ class TestMockCanalProportionalWafrOrder:
 
         # loop through the days
         for i in range(0, 2):
-            canals.fillCanals(self.canalList, i, self.wafr)
-            canals.canalsUpdateDailyValues(self.canalList, i)
+            canals.fill_canals(self.canalList, i, self.wafr)
+            canals.canals_update_daily_values(self.canalList, i)
 
     def test_use_canal_day1(self):
 
@@ -574,7 +574,7 @@ class TestOFR:
 
     def test_getSiteVolume(self):
 
-        assert self.ofr.getSiteVolume(0, self.cropCalendar) == 42.024
+        assert self.ofr.get_site_volume(0, self.cropCalendar) == 42.024
 
     def test_useSite(self):
 
@@ -584,7 +584,7 @@ class TestOFR:
 
         self.ofr.precip[1] = 2.1
 
-        self.ofr.useSite(
+        self.ofr.use_site(
             1,
             wafr,
             self.bottleneckList,
@@ -605,7 +605,7 @@ class TestOFR:
 
         transferLimits = {"D1": 0, "transfer_wafr_sources": {"D1": "B"}}
 
-        self.ofr.useSite(
+        self.ofr.use_site(
             1,
             wafr,
             self.bottleneckList,
@@ -625,7 +625,7 @@ class TestOFR:
 
         transferLimits = {"D1": 100, "transfer_wafr_sources": {"D1": "B"}}
 
-        self.ofr.useSite(
+        self.ofr.use_site(
             1,
             wafr,
             self.bottleneckList,
@@ -704,7 +704,7 @@ class TestModelMainRun:
         }
 
     def test_runGRAT_wafr(self):
-        r = grat.processYear(
+        r = grat.process_year(
             self.site_list,
             self.bottleneckList,
             self.wafr,
@@ -718,7 +718,7 @@ class TestModelMainRun:
         }
 
     def test_runGRAT_canals(self):
-        r = grat.processYear(
+        r = grat.process_year(
             self.site_list,
             self.bottleneckList,
             self.wafr,
@@ -729,7 +729,7 @@ class TestModelMainRun:
         assert sum(r["sites"][0].dailyRechargeVolumes) == 1800.0
 
     def test_runGRAT_sites(self):
-        r = grat.processYear(
+        r = grat.process_year(
             self.site_list,
             self.bottleneckList,
             self.wafr,
@@ -806,7 +806,7 @@ class TestModelMainRunMultiYear:
         sites2 = copy.deepcopy(self.site_list)
         bottleneckList2 = copy.deepcopy(self.bottleneckList)
 
-        year_1 = grat.processYear(
+        year_1 = grat.process_year(
             self.site_list,
             self.bottleneckList,
             self.wafr,
@@ -814,7 +814,7 @@ class TestModelMainRunMultiYear:
             precip=None,
         )
 
-        year_2 = grat.processYear(sites2, bottleneckList2, self.wafr2, self.cropCalendar, precip=None)
+        year_2 = grat.process_year(sites2, bottleneckList2, self.wafr2, self.cropCalendar, precip=None)
 
         # years should not be equal
         assert year_1["sites"] != year_2["sites"]
@@ -843,7 +843,7 @@ class TestSorters:
 
     def test_sortByType(self):
         s = self.listofsites.copy()
-        s.sort(key=sorters.rechargeTypeOrder)
+        s.sort(key=sorters.recharge_type_order)
         site_order = [o.gratID for o in s]
         assert site_order == ["C", "A", "B", "E", "D"]
 
@@ -866,13 +866,13 @@ class TestSorters:
 
     def test_sortSitesBasic(self):
 
-        s = sorters.sortSites(self.listofsites, sortRule=None)
+        s = sorters.sort_sites(self.listofsites, sortRule=None)
         site_order = [o.gratID for o in s]
         assert site_order == ["C", "A", "B", "E", "D"]
 
     def test_sortSitesScenarioA(self):
 
-        s = sorters.sortSites(self.listofsites, sortRule="A")
+        s = sorters.sort_sites(self.listofsites, sortRule="A")
         site_order = [o.gratID for o in s]
         assert site_order == ["C", "B", "E", "A", "D"]
 
@@ -900,13 +900,13 @@ class TestSortersCanals:
 
     def test_sortByType(self):
         s = self.listofsites.copy()
-        s.sort(key=sorters.rechargeTypeOrder)
+        s.sort(key=sorters.recharge_type_order)
         site_order = [o.gratID for o in s]
         assert site_order == ["A", "D", "C", "B", "E"]
 
     def test_sortTypeByVariable(self):
         s = sorters.sort_by_variable(self.listofsites, "acres", reverse=True)
-        s.sort(key=sorters.rechargeTypeOrder)
+        s.sort(key=sorters.recharge_type_order)
         site_order = [o.gratID for o in s]
         assert site_order == ["A", "D", "C", "E", "B"]
 
@@ -966,12 +966,12 @@ class TestSortersInLieu:
         self.listofsites = [a, b, c, d, e]
 
     def test_sortIL(self):
-        _, sites_il, _, _ = sorters.groupSitesByRechargeType(self.listofsites, rmaSort=False)
+        _, sites_il, _, _ = sorters.group_sites_by_recharge_type(self.listofsites, rmaSort=False)
         site_order = [o.gratID for o in sites_il]
         assert site_order == ["C", "D", "E", "A"]
 
     def test_sortIL_rma(self):
-        _, sites_il, _, _ = sorters.groupSitesByRechargeType(self.listofsites, rmaSort=True)
+        _, sites_il, _, _ = sorters.group_sites_by_recharge_type(self.listofsites, rmaSort=True)
         site_order = [o.gratID for o in sites_il]
         assert site_order == ["C", "D", "A", "E"]
 
@@ -1002,7 +1002,7 @@ class TestIL:
 
     def test_getSiteVolume(self):
 
-        assert self.il.getSiteVolume(0, self.ilCropCalendar, inlieu=True) == 42.024
+        assert self.il.get_site_volume(0, self.ilCropCalendar, inlieu=True) == 42.024
 
     def test_useSite(self):
 
@@ -1010,7 +1010,7 @@ class TestIL:
 
         wafr = {"A": [1.3, 4, 3.5], "B": [4.2, 1000, 1]}
         self.il.precip[1] = 2.1
-        self.il.useSite(
+        self.il.use_site(
             1,
             wafr,
             self.bottleneckList,
@@ -1035,7 +1035,7 @@ class TestIL:
         self.il.precip[0] = 2.1
         self.il.precip[1] = 2.1
 
-        self.il.useSite(
+        self.il.use_site(
             1,
             wafr,
             self.bottleneckList,
@@ -1043,7 +1043,7 @@ class TestIL:
             inLieu=True,
         )
 
-        self.il.useSite(
+        self.il.use_site(
             1,
             wafr,
             self.bottleneckList,
@@ -1072,7 +1072,7 @@ class TestIL:
 
         self.il.precip[1] = 0
 
-        self.il.useSite(
+        self.il.use_site(
             1,
             wafr,
             self.bottleneckList,
@@ -1080,7 +1080,7 @@ class TestIL:
             inLieu=True,
         )
 
-        self.il.useSite(
+        self.il.use_site(
             1,
             wafr,
             self.bottleneckList,
@@ -1101,10 +1101,10 @@ class TestWafrSortOrder:
         self.wafr = {"SourceB": [50, 12000], "SourceA": [19, 300000]}
 
     def test_day0(self):
-        assert utils.sortWafrSourceByVolume(self.wafr, 0) == ["SourceB", "SourceA"]
+        assert utils.sort_wafr_source_by_volume(self.wafr, 0) == ["SourceB", "SourceA"]
 
     def test_day1(self):
-        assert utils.sortWafrSourceByVolume(self.wafr, 1) == ["SourceA", "SourceB"]
+        assert utils.sort_wafr_source_by_volume(self.wafr, 1) == ["SourceA", "SourceB"]
 
 
 class TestWafrAvailability:
@@ -1112,10 +1112,10 @@ class TestWafrAvailability:
         self.wafr = {"SourceB": [50, 12000, 0, 0], "SourceA": [19, 300000, 0, 1]}
 
     def test_day0(self):
-        assert utils.checkWafrAvailability(self.wafr, 0)
+        assert utils.check_wafr_availability(self.wafr, 0)
 
     def test_day2(self):
-        assert not utils.checkWafrAvailability(self.wafr, 2)
+        assert not utils.check_wafr_availability(self.wafr, 2)
 
 
 class TestGetCompatibleCrops:
@@ -1126,133 +1126,131 @@ class TestGetCompatibleCrops:
         }
 
     def test_day0(self):
-        assert utils.getCompatibleCropsSoilsForDay(self.ccc, 0) == [("Corn", "Good")]
+        assert utils.get_compatible_crops_soils_for_day(self.ccc, 0) == [("Corn", "Good")]
 
     def test_day1(self):
-        assert utils.getCompatibleCropsSoilsForDay(self.ccc, 1) == [
+        assert utils.get_compatible_crops_soils_for_day(self.ccc, 1) == [
             ("Corn", "Poor"),
             ("Rice", "Good"),
         ]
 
     def test_day2(self):
-        assert utils.getCompatibleCropsSoilsForDay(self.ccc, 2) == [
+        assert utils.get_compatible_crops_soils_for_day(self.ccc, 2) == [
             ("Corn", "Poor"),
             ("Corn", "Good"),
             ("Rice", "Great"),
         ]
 
     def test_day3(self):
-        assert utils.getCompatibleCropsSoilsForDay(self.ccc, 3) == []
+        assert utils.get_compatible_crops_soils_for_day(self.ccc, 3) == []
 
     def test_None(self):
-        assert utils.getCompatibleCropsSoilsForDay(None, 2) == []
+        assert utils.get_compatible_crops_soils_for_day(None, 2) == []
 
 
-# NOTE: grat.py has not been ported to this project yet, see comment above.
-#
-# class TestModelMainRunSecondaryWafr:
-#     def setup_method(self) -> None:
-#         self.canal1 = canals.Canal(
-#             gratID="test",
-#             wafrSourcesPrimary=["A", "B"],
-#             maxCapacity=10000,
-#             percRate=600,
-#             rechargeType="Canal",
-#         )
-#         self.site1 = farms.Farm(
-#             gratID=299,
-#             crop="Corn",
-#             acres=12.5,
-#             rechargeType="On-Farm Recharge",
-#             soilType="Good",
-#             cfsLimit=5 / 1.983,
-#             bottleneckIDs=[2],
-#             wafrSourcesPrimary=["B"],
-#             wafrSourcesSecondary=["A"],
-#         )
-#         self.site2 = farms.Farm(
-#             gratID=9,
-#             crop="Wheat",
-#             acres=2.5,
-#             rechargeType="On-Farm Recharge",
-#             soilType="Good",
-#             cfsLimit=5 / 1.983,
-#             bottleneckIDs=[2],
-#             wafrSourcesPrimary=["A"],
-#             wafrSourcesSecondary=["B"],
-#         )
-#         self.site3 = basins.Basin(
-#             gratID=33,
-#             acres=2.5,
-#             rechargeType="Basin",
-#             percRate=1.2,
-#             maxCapacity=100,
-#             bottleneckIDs=[2],
-#             wafrSourcesPrimary=["A"],
-#             wafrSourcesSecondary=["B"],
-#         )
-#         self.site_list = [self.canal1, self.site3, self.site1, self.site2]
-#         self.wafr = {"A": [20000.3, 20000, 20000], "B": [4.2, 9.2, 1]}
-#
-#         # need bottleneck obj to mock
-#         self.bottleneckList = [
-#             bottlenecks.Bottleneck(
-#                 bottleneckID=2,
-#                 name="canal name",
-#                 capacity=595.037759907,
-#                 wafrSources=["A"],
-#             ),
-#             bottlenecks.Bottleneck(
-#                 bottleneckID=2,
-#                 name="canal name",
-#                 capacity=595.037759907,
-#                 wafrSources=["B"],
-#             ),
-#         ]
-#
-#         self.cropCalendar = {
-#             "Corn": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
-#             "Wheat": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
-#         }
-#
-#     def test_runGRAT_wafr(self):
-#         r = grat.processYear(
-#             self.site_list,
-#             self.bottleneckList,
-#             self.wafr,
-#             self.cropCalendar,
-#             precip=None,
-#         )
-#
-#         assert r["wafr"] == {
-#             "A": [9294.099999999999 - 0.8, 19393.8, 19393.8 - 4],
-#             "B": [0.0, 4.199999999999999, 0],
-#         }
-#
-#     def test_runGRAT_canals(self):
-#         r = grat.processYear(
-#             self.site_list,
-#             self.bottleneckList,
-#             self.wafr,
-#             self.cropCalendar,
-#             precip=None,
-#         )
-#
-#         assert sum(r["sites"][0].dailyRechargeVolumes) == 1800.0
-#
-#     def test_runGRAT_sites(self):
-#         r = grat.processYear(
-#             self.site_list,
-#             self.bottleneckList,
-#             self.wafr,
-#             self.cropCalendar,
-#             precip=None,
-#         )
-#
-#         # basin 1.2 perc rate x 3 days
-#         assert sum(r["sites"][1].dailyRechargeVolumes) == pytest.approx(3.6)
-#         # site 1 [4.2, 5. , 1.]
-#         assert sum(r["sites"][2].ofrDailyRechargeVolumes) == pytest.approx(15)
+class TestModelMainRunSecondaryWafr:
+    def setup_method(self) -> None:
+        self.canal1 = canals.Canal(
+            gratID="test",
+            wafrSourcesPrimary=["A", "B"],
+            maxCapacity=10000,
+            percRate=600,
+            rechargeType="Canal",
+        )
+        self.site1 = farms.Farm(
+            gratID=299,
+            crop="Corn",
+            acres=12.5,
+            rechargeType="On-Farm Recharge",
+            soilType="Good",
+            cfsLimit=5 / 1.983,
+            bottleneckIDs=[2],
+            wafrSourcesPrimary=["B"],
+            wafrSourcesSecondary=["A"],
+        )
+        self.site2 = farms.Farm(
+            gratID=9,
+            crop="Wheat",
+            acres=2.5,
+            rechargeType="On-Farm Recharge",
+            soilType="Good",
+            cfsLimit=5 / 1.983,
+            bottleneckIDs=[2],
+            wafrSourcesPrimary=["A"],
+            wafrSourcesSecondary=["B"],
+        )
+        self.site3 = basins.Basin(
+            gratID=33,
+            acres=2.5,
+            rechargeType="Basin",
+            percRate=1.2,
+            maxCapacity=100,
+            bottleneckIDs=[2],
+            wafrSourcesPrimary=["A"],
+            wafrSourcesSecondary=["B"],
+        )
+        self.site_list = [self.canal1, self.site3, self.site1, self.site2]
+        self.wafr = {"A": [20000.3, 20000, 20000], "B": [4.2, 9.2, 1]}
+
+        # need bottleneck obj to mock
+        self.bottleneckList = [
+            bottlenecks.Bottleneck(
+                bottleneckID=2,
+                name="canal name",
+                capacity=595.037759907,
+                wafrSources=["A"],
+            ),
+            bottlenecks.Bottleneck(
+                bottleneckID=2,
+                name="canal name",
+                capacity=595.037759907,
+                wafrSources=["B"],
+            ),
+        ]
+
+        self.cropCalendar = {
+            "Corn": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
+            "Wheat": {"Good": {0: 4.12, 1: 4.12, 2: 4.12}},
+        }
+
+    def test_runGRAT_wafr(self):
+        r = grat.process_year(
+            self.site_list,
+            self.bottleneckList,
+            self.wafr,
+            self.cropCalendar,
+            precip=None,
+        )
+
+        assert r["wafr"] == {
+            "A": [9294.099999999999 - 0.8, 19393.8, 19393.8 - 4],
+            "B": [0.0, 4.199999999999999, 0],
+        }
+
+    def test_runGRAT_canals(self):
+        r = grat.process_year(
+            self.site_list,
+            self.bottleneckList,
+            self.wafr,
+            self.cropCalendar,
+            precip=None,
+        )
+
+        assert sum(r["sites"][0].dailyRechargeVolumes) == 1800.0
+
+    def test_runGRAT_sites(self):
+        r = grat.process_year(
+            self.site_list,
+            self.bottleneckList,
+            self.wafr,
+            self.cropCalendar,
+            precip=None,
+        )
+
+        # basin 1.2 perc rate x 3 days
+        assert sum(r["sites"][1].dailyRechargeVolumes) == pytest.approx(3.6)
+        # site 1 [4.2, 5. , 1.]
+        assert sum(r["sites"][2].ofrDailyRechargeVolumes) == pytest.approx(15)
 
 
 class TestSubsetSiteList:
@@ -1273,9 +1271,9 @@ class TestSubsetSiteList:
         }
 
     def test_getWafrSourcesWithWater(self):
-        assert utils.sortWafrSourceByVolume(self.wafr, 0) == ["CalDuck"]
-        assert utils.sortWafrSourceByVolume(self.wafr, 1) == []
-        assert utils.sortWafrSourceByVolume(self.wafr, 4) == [
+        assert utils.sort_wafr_source_by_volume(self.wafr, 0) == ["CalDuck"]
+        assert utils.sort_wafr_source_by_volume(self.wafr, 1) == []
+        assert utils.sort_wafr_source_by_volume(self.wafr, 4) == [
             "Calaveras",
             "Duck",
             "CalDuck",
@@ -1286,7 +1284,7 @@ class TestTurnoutLimitConversion:
     def test_turnoutLimitConversion_with_valid_input(self):
         cfsRate = 20
         expected_output = 39.66
-        assert farms.turnoutLimitConversion(cfsRate) == pytest.approx(expected_output, abs=0.005)
+        assert farms.turnout_limit_conversion(cfsRate) == pytest.approx(expected_output, abs=0.005)
 
 
 class TestCalcTransferLimits:

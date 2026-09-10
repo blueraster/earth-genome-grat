@@ -91,9 +91,9 @@ class BaseSite:
         self.regionNumber = regionNumber  # climate region number
         self.sustainabilityZone = None if sustainabilityZone is None else str(sustainabilityZone)
         if self.wafrSourcesPrimary is None:
-            self.wafrSourcesPrimary = list()
+            self.wafrSourcesPrimary = []
         if self.wafrSourcesSecondary is None:
-            self.wafrSourcesSecondary = list()
+            self.wafrSourcesSecondary = []
 
         self.wafrSources = self.wafrSourcesPrimary + self.wafrSourcesSecondary
 
@@ -101,7 +101,7 @@ class BaseSite:
         self.projects = projects
         self.depthToGroundwater = depthToGroundwater
 
-    def calcPrecip(self, precipDictionary: dict):
+    def calc_precip(self, precipDictionary: dict):
         """
         Calculates the site's precip volume by multiplying the area (acres) by the precipitation received at the grid
         identifier (decimal-feet). Output should be in acre-feet.
@@ -125,7 +125,7 @@ class BaseSite:
                 self.precip[idx] = v
         return
 
-    def setDailyRecharge(self, day: int, newVolume: float):
+    def set_daily_recharge(self, day: int, newVolume: float):
         """
         Update the daily recharge value by adding the new volume that goes to groundwater recharge
 
@@ -136,7 +136,7 @@ class BaseSite:
         """
         self.dailyRechargeVolumes[day] += newVolume
 
-    def setWafrLog(self, wafrSource: str, volume: float):
+    def set_wafr_log(self, wafrSource: str, volume: float):
         """
         Adds the WAFR source to the log for the site.
         Args:

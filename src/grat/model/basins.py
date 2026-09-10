@@ -25,7 +25,7 @@ class Basin(BaseSite):
         self.percRate = percRate
         self.maxCapacity = maxCapacity
 
-    def updateDailyValues(self, day: int):
+    def update_daily_values(self, day: int):
         """
         Sets the daily recharge volume. The volume that goes to recharge is the perc rate or the current capacity if
          the capacity is less than the perc rate volume. The perc rate is then subtracted from the current capacity.
@@ -34,10 +34,10 @@ class Basin(BaseSite):
             day: zero-indexed day of the water year
         """
         rechargeVolume = min(self.percRate, self.currentCapacity)
-        self.setDailyRecharge(day, rechargeVolume)
+        self.set_daily_recharge(day, rechargeVolume)
         self.currentCapacity = max(self.currentCapacity - self.percRate, 0)
 
-    def getBasinVolumeAvailable(self, day: int):
+    def get_basin_volume_available(self, day: int):
         """
         Basin volume (acre-feet) available is the capacity minus the current capacity plus the perc rate minus precip
         """
@@ -46,7 +46,7 @@ class Basin(BaseSite):
             0,
         )
 
-    def setUsedVolume(self, day: int, newVolume: float):
+    def set_used_volume(self, day: int, newVolume: float):
         """
         Set used volume for a specific date
 
@@ -58,7 +58,7 @@ class Basin(BaseSite):
         self.currentCapacity = self.currentCapacity + newVolume
         return
 
-    def useBasin(
+    def use_basin(
         self,
         dowy: int,
         wafr: dict,
@@ -94,41 +94,41 @@ class Basin(BaseSite):
             volumeAvailableFromWafr = wafr[wafrsrc][dowy]
 
             if volumeAvailableFromWafr > 0:
-                if self.getBasinVolumeAvailable(dowy) <= 0:
+                if self.get_basin_volume_available(dowy) <= 0:
                     break  # exit loop if no water can be applied to the basin
 
                 # Determine how much water is available through the system bottlenecks
                 # get the bottlepoint object for the wafr source that restrict delivery to this site
-                bottlePoints = bottlenecks.getBottlenecks(bottleneckList, self.bottleneckIDs, wafrsrc)
+                bottlePoints = bottlenecks.get_bottlenecks(bottleneckList, self.bottleneckIDs, wafrsrc)
 
                 if len(bottlePoints) > 0:
                     # get the minimum available throughput from the bottlenecks
-                    availableThroughput = min([bp.getAvailableThroughput(dowy) for bp in bottlePoints])
+                    availableThroughput = min([bp.get_available_throughput(dowy) for bp in bottlePoints])
 
                 else:
                     availableThroughput = math.inf
 
                 # how much volume could get added to the site? (the minimum value of limiting factors).
                 wafrApplied = min(
-                    self.getBasinVolumeAvailable(dowy),
+                    self.get_basin_volume_available(dowy),
                     volumeAvailableFromWafr,
                     availableThroughput,
                 )
 
                 if wafrApplied > 0:
                     # set used volume to the amount of water applied to the basin
-                    self.setUsedVolume(dowy, wafrApplied)
+                    self.set_used_volume(dowy, wafrApplied)
 
                     # subtract the water used from the overall WAFR
                     wafr[wafrsrc][dowy] -= wafrApplied
 
                     # update wafr source log
-                    self.setWafrLog(wafrsrc, wafrApplied)
+                    self.set_wafr_log(wafrsrc, wafrApplied)
 
                     # update bottlenecks usage
                     if len(bottlePoints) > 0:
                         for bp in bottlePoints:
-                            bp.updateUsage(dowy, wafrApplied)
+                            bp.update_usage(dowy, wafrApplied)
 
                     # update transfer limits
                     if transferLimits is not None and self.district in transferLimits:
@@ -136,7 +136,7 @@ class Basin(BaseSite):
         return
 
 
-def fillBasins(
+def fill_basins(
     basinList: list,
     day: int,
     wafr: dict,
@@ -159,7 +159,7 @@ def fillBasins(
     """
 
     for b in basinList:
-        b.useBasin(
+        b.use_basin(
             day,
             wafr,
             bottleneckList,
@@ -170,7 +170,7 @@ def fillBasins(
     return
 
 
-def basinsUpdateDailyValues(basinList: list, day: int):
+def basins_update_daily_values(basinList: list, day: int):
     """
     Loops through the basins in the list and calls the updateDailyValues method to move percRate volume to
      groundwater recharge
@@ -181,5 +181,5 @@ def basinsUpdateDailyValues(basinList: list, day: int):
 
     """
     for b in basinList:
-        b.updateDailyValues(day)  # update daily values
+        b.update_daily_values(day)  # update daily values
     return

@@ -39,11 +39,11 @@ class Bottleneck:
         self.wafrSources = wafrSources if wafrSources is not None else []  # names of the WAFR sources
         self.capacity = capacity
         self.capacityIrrigation = capacityIrrigation
-        self.availableThroughput = self._calculateThroughput(
+        self.availableThroughput = self._calculate_throughput(
             irrigationDays if irrigationDays is not None else []
         )  # volume in acre-feet per day
 
-    def _calculateThroughput(self, irrigationDays=None):
+    def _calculate_throughput(self, irrigationDays=None):
 
         if irrigationDays is None:
             irrigationDays = []
@@ -57,7 +57,7 @@ class Bottleneck:
 
         return throughPutArray
 
-    def updateUsage(self, day: int, amount: float):
+    def update_usage(self, day: int, amount: float):
         """
         Updates the bottleneck available throughput by subtracting the volume used by the site
 
@@ -68,7 +68,7 @@ class Bottleneck:
         self.availableThroughput[day] -= amount
         return
 
-    def getAvailableThroughput(self, day: int):
+    def get_available_throughput(self, day: int):
         """
         Volume available to pass through the bottleneck
 
@@ -88,7 +88,7 @@ class Bottleneck:
 
 
 # operations on list of bottlenecks
-def getBottlenecks(bottleneckList, bottleneckIDs, wafrSource):
+def get_bottlenecks(bottleneckList, bottleneckIDs, wafrSource):
     """
     Returns the object that matches the specific bottleneckID and WAFR source
     Args:
@@ -100,15 +100,12 @@ def getBottlenecks(bottleneckList, bottleneckIDs, wafrSource):
 
     """
     try:
-        bottlenecks_at_site = [
-            b for b in bottleneckList if b.bottleneckID in bottleneckIDs and wafrSource in b.wafrSources
-        ]
-        return bottlenecks_at_site
-    except Exception:
+        return [b for b in bottleneckList if b.bottleneckID in bottleneckIDs and wafrSource in b.wafrSources]
+    except KeyError:
         return []
 
 
-def bottleneckCapacityLogger(bottleneckList):
+def bottleneck_capacity_logger(bottleneckList):
     """
     Daily array of the bottlenecks that reached capacity
     Args:

@@ -3,7 +3,7 @@ import logging
 import operator
 
 
-def rechargeTypeOrder(site):
+def recharge_type_order(site):
     """
     Set the sort priority order depending on recharge type
     Args:
@@ -14,12 +14,11 @@ def rechargeTypeOrder(site):
     """
     if site.rechargeType == "Canal":
         return 1
-    elif site.rechargeType == "Basin":
+    if site.rechargeType == "Basin":
         return 2
-    elif site.rechargeType == "OFR":
+    if site.rechargeType == "OFR":
         return 3
-    else:
-        return 4
+    return 4
 
 
 def none_aware_attrgetter(attr, reverse=False):
@@ -37,8 +36,7 @@ def none_aware_attrgetter(attr, reverse=False):
         value = getter(item)
         if reverse is True:
             return (value is not None, value)
-        else:
-            return (value is None, value)
+        return (value is None, value)
 
     return key_func
 
@@ -57,9 +55,7 @@ def sort_by_variable(list_of_sites, variable, reverse=False):
     Returns: sorted list of objects
     """
 
-    s = sorted(list_of_sites, key=none_aware_attrgetter(variable, reverse), reverse=reverse)
-
-    return s
+    return sorted(list_of_sites, key=none_aware_attrgetter(variable, reverse), reverse=reverse)
 
 
 def sort_by_variables(list_of_sites, specs):
@@ -81,7 +77,7 @@ def sort_by_variables(list_of_sites, specs):
     return list_of_sites
 
 
-def sortSites(sitesList, sortRule=None):
+def sort_sites(sitesList, sortRule=None):
     """
     Orders sites objects by various scenarios by sorting multiple object properties.
     The order the Object properties to sort by is important (most restrictive -> least).
@@ -98,18 +94,18 @@ def sortSites(sitesList, sortRule=None):
     if sortRule is None:
         # sort by rsi score, acres and then finally by recharge type
         s = sort_by_variables(sitesList, (("rsi", True), ("acres", True)))
-        s.sort(key=rechargeTypeOrder)
+        s.sort(key=recharge_type_order)
 
     elif sortRule == "A":
         # test scenario for sorting
         # sort by recharge type, scenario, index score, acres
         s = sort_by_variables(sitesList, (("scenarioA", True), ("rsi", True), ("acres", True)))
-        s.sort(key=rechargeTypeOrder)
+        s.sort(key=recharge_type_order)
 
     elif sortRule == "RMA":
         # sort by RMA rank,rsi score, acres and then finally by recharge type
         s = sort_by_variables(sitesList, (("rma", False), ("rsi", True), ("acres", True)))
-        s.sort(key=rechargeTypeOrder)
+        s.sort(key=recharge_type_order)
     else:
         raise Exception("Unknown sort rule selected")
 
@@ -123,7 +119,7 @@ def sortSites(sitesList, sortRule=None):
     return sortedSitesList
 
 
-def groupSitesByRechargeType(siteList, useInLieu=True, useOFR=True, rmaSort=False):
+def group_sites_by_recharge_type(siteList, useInLieu=True, useOFR=True, rmaSort=False):
     """
     Splits siteList into sublists by type (basins, in-lieu, on farm recharge)
     Args:
@@ -195,8 +191,7 @@ def mlrp_sorter(sites, gsa_target_percentage=None):
         gsa = site.agency
         if total_gsa_acreage[gsa] <= 0:
             continue
-        else:
-            total_gsa_acreage[gsa] -= site.acres
-            site.crop = "MLRP"
-            site.inLieuCrop = None  # reset in-lieu crop if it was set
+        total_gsa_acreage[gsa] -= site.acres
+        site.crop = "MLRP"
+        site.inLieuCrop = None  # reset in-lieu crop if it was set
     return

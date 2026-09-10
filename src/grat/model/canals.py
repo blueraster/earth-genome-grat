@@ -5,7 +5,7 @@ Conveyance system
 import numpy as np
 
 from .basins import Basin
-from .utils import sortWafrSourceByVolume
+from .utils import sort_wafr_source_by_volume
 
 
 class Canal(Basin):
@@ -28,11 +28,11 @@ class Canal(Basin):
         super().__init__(**kwargs)
 
         self.rechargeType = "Canal"
-        self.maxCapacity = self._calculateDailyCapacity(
+        self.maxCapacity = self._calculate_daily_capacity(
             self.maxCapacity, irrigationDays if irrigationDays is not None else []
         )  # array supersedes the basin variable to account for changes in volume due to operations
 
-    def _calculateDailyCapacity(self, maxCapacity, irrigationDays=None):
+    def _calculate_daily_capacity(self, maxCapacity, irrigationDays=None):
 
         if irrigationDays is None:
             irrigationDays = []
@@ -46,7 +46,7 @@ class Canal(Basin):
 
         return capacityArray
 
-    def getCanalVolumeAvailable(self, day: int):
+    def get_canal_volume_available(self, day: int):
         """
         Canal volume available is the max capacity minus the current capacity plus the perc rate
 
@@ -61,7 +61,7 @@ class Canal(Basin):
             return 0  # no capacity on this day (irrigation season). Assumed full (perc accounted in different model)
         return max(self.maxCapacity[day] - self.currentCapacity + self.percRate, 0)
 
-    def useCanal(self, day: int, wafr: dict, source: str, usableVolFromSource: float):
+    def use_canal(self, day: int, wafr: dict, source: str, usableVolFromSource: float):
         """
         Apply water to the canal on a specific day using a proportionally allocated volume from a specific WAFR source
 
@@ -73,16 +73,16 @@ class Canal(Basin):
         """
         volumeAvailableFromWafr = wafr[source][day]
         if volumeAvailableFromWafr > 0 and usableVolFromSource > 0:
-            wafrApplied = min(self.getCanalVolumeAvailable(day), usableVolFromSource)
-            self.setUsedVolume(day, wafrApplied)
+            wafrApplied = min(self.get_canal_volume_available(day), usableVolFromSource)
+            self.set_used_volume(day, wafrApplied)
             wafr[source][day] -= wafrApplied
-            self.setWafrLog(source, wafrApplied)
+            self.set_wafr_log(source, wafrApplied)
 
     def __repr__(self):
         return f"{self.__dict__}"
 
 
-def proportionallyFill(
+def proportionally_fill(
     day: int,
     canalList: list,
     wafr: dict,
@@ -120,19 +120,21 @@ def proportionallyFill(
             compatibleCanals = [c for c in canalList if selectedWafr in c.wafrSourcesPrimary]
 
         # sum of the volume available for the list of compatible canals that can receive water from this source
-        sumCanalVolumeAvailable = sum([c.getCanalVolumeAvailable(day) for c in compatibleCanals])
+        sumCanalVolumeAvailable = sum([c.get_canal_volume_available(day) for c in compatibleCanals])
 
         # proportionally fill canals using fraction of volume available at site divided by the sum all volume available.
         if sumCanalVolumeAvailable > 0:
             for c in compatibleCanals:
-                proportionalVolume = c.getCanalVolumeAvailable(day) / sumCanalVolumeAvailable * volumeAvailableFromWafr
-                fillVolume = min(c.getCanalVolumeAvailable(day), proportionalVolume)
-                c.useCanal(day, wafr, selectedWafr, usableVolFromSource=fillVolume)
+                proportionalVolume = (
+                    c.get_canal_volume_available(day) / sumCanalVolumeAvailable * volumeAvailableFromWafr
+                )
+                fillVolume = min(c.get_canal_volume_available(day), proportionalVolume)
+                c.use_canal(day, wafr, selectedWafr, usableVolFromSource=fillVolume)
 
     return
 
 
-def fillCanals(canalList: list, day: int, wafr: dict, secondaryWAFR: bool = False):
+def fill_canals(canalList: list, day: int, wafr: dict, secondaryWAFR: bool = False):
     """
     Loops through each of the WAFR sources and applies water to the canals
 
@@ -146,15 +148,15 @@ def fillCanals(canalList: list, day: int, wafr: dict, secondaryWAFR: bool = Fals
 
     """
 
-    wafrOrder = sortWafrSourceByVolume(wafr, day)  # sort WAFR sources by volume currently available
+    wafrOrder = sort_wafr_source_by_volume(wafr, day)  # sort WAFR sources by volume currently available
 
     for wafrSource in wafrOrder:
-        proportionallyFill(day, canalList, wafr, wafrSource, secondaryWAFR=secondaryWAFR)
+        proportionally_fill(day, canalList, wafr, wafrSource, secondaryWAFR=secondaryWAFR)
 
     return
 
 
-def canalsUpdateDailyValues(canalList: list, day: int):
+def canals_update_daily_values(canalList: list, day: int):
     """
     Loops through the canals in the list and calls the updateDailyValues method to move percRate volume to
         groundwater recharge
@@ -167,5 +169,5 @@ def canalsUpdateDailyValues(canalList: list, day: int):
 
     """
     for c in canalList:
-        c.updateDailyValues(day)  # update daily values
+        c.update_daily_values(day)  # update daily values
     return

@@ -21,7 +21,7 @@ def timer_func(func):
     return wrap_func
 
 
-def savePickle(directory_path, file_name, pickle_content):
+def save_pickle(directory_path, file_name, pickle_content):
     """
     Saves a pickle to disk
     Args:
@@ -38,7 +38,7 @@ def savePickle(directory_path, file_name, pickle_content):
     return output_file_path
 
 
-def loadPickle(pickle_path):
+def load_pickle(pickle_path):
     """
     Loads a pickle from disk
     Args:
@@ -48,11 +48,10 @@ def loadPickle(pickle_path):
 
     """
     with open(pickle_path, "rb") as file:
-        unpickled_object = pickle.load(file)
-    return unpickled_object
+        return pickle.load(file)
 
 
-def sortWafrSourceByVolume(wafr: dict, day: int):
+def sort_wafr_source_by_volume(wafr: dict, day: int):
     """
     Sorts WAFR sources names by the volume available for the date
     Args:
@@ -63,11 +62,10 @@ def sortWafrSourceByVolume(wafr: dict, day: int):
 
     """
     non_zero_sources = [source for source in wafr if wafr[source][day] != 0]
-    sorted_sources = sorted(non_zero_sources, key=lambda x: wafr[x][day], reverse=True)
-    return sorted_sources
+    return sorted(non_zero_sources, key=lambda x: wafr[x][day], reverse=True)
 
 
-def checkWafrAvailability(wafr, day):
+def check_wafr_availability(wafr, day):
     """
     Checks if water is available from ANY WAFR source
     Args:
@@ -83,7 +81,7 @@ def checkWafrAvailability(wafr, day):
     return total_volume > 0
 
 
-def getCompatibleCropsSoilsForDay(crop_compatibility_calendar: dict, day: int):
+def get_compatible_crops_soils_for_day(crop_compatibility_calendar: dict, day: int):
     """
     Returns a list of crops that can accept water for a given day
     Args:
@@ -95,16 +93,15 @@ def getCompatibleCropsSoilsForDay(crop_compatibility_calendar: dict, day: int):
     """
     if crop_compatibility_calendar is None:
         return []
-    valid_combos = [
+    return [
         (crop, soil)
         for crop, soil_types in crop_compatibility_calendar.items()
         for soil, days in soil_types.items()
         if days[day] > 0
     ]
-    return valid_combos
 
 
-def subsetInLieuCanAcceptWater(inLieuSites, wafrSource_list, cropSoilType_list):
+def subset_in_lieu_can_accept_water(inLieuSites, wafrSource_list, cropSoilType_list):
     """
 
     Args:
@@ -120,12 +117,10 @@ def subsetInLieuCanAcceptWater(inLieuSites, wafrSource_list, cropSoilType_list):
     inLieuSites_canAcceptWAFR = [s for s in inLieuSites if any(elem in s.wafrSources for elem in wafrSource_list)]
 
     # subset by field that have non-zero values for the day in the appropriate crop compatibility calendar
-    inLieuSites_canBeUsed = [s for s in inLieuSites_canAcceptWAFR if (s.inLieuCrop, s.soilType) in cropSoilType_list]
-
-    return inLieuSites_canBeUsed
+    return [s for s in inLieuSites_canAcceptWAFR if (s.inLieuCrop, s.soilType) in cropSoilType_list]
 
 
-def subsetOfrCanAcceptWater(ofrSites, wafrSource_list, cropSoilType_list):
+def subset_ofr_can_accept_water(ofrSites, wafrSource_list, cropSoilType_list):
     """
 
     Args:
@@ -141,6 +136,4 @@ def subsetOfrCanAcceptWater(ofrSites, wafrSource_list, cropSoilType_list):
     ofrSites_canAcceptWAFR = [s for s in ofrSites if any(elem in s.wafrSources for elem in wafrSource_list)]
 
     # subset by field that have non-zero values for the day in the appropriate crop compatibility calendar
-    ofrSites_canBeUsed = [s for s in ofrSites_canAcceptWAFR if (s.crop, s.soilType) in cropSoilType_list]
-
-    return ofrSites_canBeUsed
+    return [s for s in ofrSites_canAcceptWAFR if (s.crop, s.soilType) in cropSoilType_list]
