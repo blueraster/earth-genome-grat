@@ -101,39 +101,41 @@ def get_compatible_crops_soils_for_day(crop_compatibility_calendar: dict, day: i
     ]
 
 
-def subset_in_lieu_can_accept_water(inLieuSites, wafrSource_list, cropSoilType_list):
+def subset_in_lieu_can_accept_water(in_lieu_sites, wafr_source_list, crop_soil_types):
     """
 
     Args:
-        inLieuSites:
-        wafrSource_list:
-        cropSoilType_list:
+        in_lieu_sites:
+        wafr_source_list:
+        crop_soil_types:
 
     Returns:
 
     """
 
     # subset in lieu sites by the ones that can receive wafr from sources with water
-    inLieuSites_canAcceptWAFR = [s for s in inLieuSites if any(elem in s.wafrSources for elem in wafrSource_list)]
+    in_lieu_sites_can_accept_wafr = [
+        s for s in in_lieu_sites if any(elem in s.wafr_sources for elem in wafr_source_list)
+    ]
 
     # subset by field that have non-zero values for the day in the appropriate crop compatibility calendar
-    return [s for s in inLieuSites_canAcceptWAFR if (s.inLieuCrop, s.soilType) in cropSoilType_list]
+    return [s for s in in_lieu_sites_can_accept_wafr if (s.in_lieu_crop, s.soil_type) in crop_soil_types]
 
 
-def subset_ofr_can_accept_water(ofrSites, wafrSource_list, cropSoilType_list):
+def subset_ofr_can_accept_water(ofr_sites, wafr_source_list, crop_soil_types):
     """
 
     Args:
-        ofrSites:
-        wafrSource_list:
-        cropSoilType_list:
+        ofr_sites:
+        wafr_source_list:
+        crop_soil_types:
 
     Returns:
 
     """
 
     # subset in sites by the ones that can receive wafr from sources with water
-    ofrSites_canAcceptWAFR = [s for s in ofrSites if any(elem in s.wafrSources for elem in wafrSource_list)]
+    ofr_sites_can_accept_wafr = [s for s in ofr_sites if any(elem in s.wafr_sources for elem in wafr_source_list)]
 
     # subset by field that have non-zero values for the day in the appropriate crop compatibility calendar
-    return [s for s in ofrSites_canAcceptWAFR if (s.crop, s.soilType) in cropSoilType_list]
+    return [s for s in ofr_sites_can_accept_wafr if (s.crop, s.soil_type) in crop_soil_types]
