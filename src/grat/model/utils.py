@@ -5,6 +5,8 @@ import os
 import pickle
 from time import time
 
+logger = logging.getLogger(__name__)
+
 
 def timer_func(func):
     """Log how long the decorated function took to run.
@@ -21,7 +23,7 @@ def timer_func(func):
         t1 = time()
         result = func(*args, **kwargs)
         t2 = time()
-        logging.info(f"Function {func.__name__!r} executed in {(t2 - t1):.4f}s")
+        logger.info("Function %r executed in %.4fs", func.__name__, t2 - t1)
         return result
 
     return wrap_func

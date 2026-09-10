@@ -45,7 +45,9 @@ line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RET", "PT", "ISC", "T20", "BLE", "A", "N", "D"]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RET", "PT", "ISC", "T20", "BLE", "A", "N", "D", "LOG", "G", "TRY"]
+# TRY003 forbids messages at the raise site; a specific message is worth more than the rule.
+ignore = ["TRY003"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

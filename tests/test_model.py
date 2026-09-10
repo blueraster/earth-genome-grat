@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from grat.model import base_site, basins, bottlenecks, canals, farms, grat, sorters, utils
+from grat.model import base_site, basins, bottlenecks, canals, constants, farms, grat, sorters, utils
 from grat.model.transfers import calc_transfer_limits
 
 
@@ -1285,6 +1285,61 @@ class TestTurnoutLimitConversion:
         cfs_rate = 20
         expected_output = 39.66
         assert farms.turnout_limit_conversion(cfs_rate) == pytest.approx(expected_output, abs=0.005)
+
+
+class TestDailyArrayLength:
+    """Every daily array is sized for a leap year so no day index can overflow."""
+
+    def test_site_arrays_cover_a_leap_year(self):
+        site = farms.Farm(grat_id="f", soil_type="Good", cfs_limit=5, crop="Corn", acres=1)
+        for attr in (
+            "used_volume",
+            "daily_recharge_volumes",
+            "precip",
+            "flow_limit",
+            "ofr_used_volume",
+            "in_lieu_used_volume",
+            "used_precip",
+        ):
+            assert len(getattr(site, attr)) == constants.DAYS_PER_WATER_YEAR
+
+    def test_bottleneck_throughput_covers_a_leap_year(self):
+        b = bottlenecks.Bottleneck(bottleneck_id=1, capacity=10.0, wafr_sources=["A"])
+        assert len(b.available_throughput) == constants.DAYS_PER_WATER_YEAR
+
+    def test_capacity_log_covers_final_day_of_a_leap_year(self):
+        """A limit hit on day 365 used to raise IndexError: the log held only 365 days."""
+        b = bottlenecks.Bottleneck(bottleneck_id=7, capacity=0.0, wafr_sources=["A"])
+
+        cap_log = bottlenecks.bottleneck_capacity_logger([b])
+
+        assert len(cap_log) == constants.DAYS_PER_WATER_YEAR
+        assert cap_log[constants.DAYS_PER_WATER_YEAR - 1] == [7]
+
+
+class TestSortRuleValidation:
+    def test_unknown_sort_rule_raises_value_error(self):
+        with pytest.raises(ValueError, match="Unknown sort rule"):
+            sorters.sort_sites([], sort_rule="not-a-rule")
+
+
+class TestUseSiteMissingWafrSource:
+    def test_source_absent_from_wafr_is_treated_as_empty(self):
+        """A site naming a source the WAFR dictionary lacks takes no water, and does not raise."""
+        site = farms.Farm(
+            grat_id="f",
+            soil_type="Good",
+            cfs_limit=5,
+            crop="Corn",
+            acres=10,
+            wafr_sources_primary=["Missing"],
+        )
+        crop_calendar = {"Corn": {"Good": {0: 4.12}}}
+
+        site.use_site(0, {"Present": [100.0]}, [], crop_calendar)
+
+        assert site.ofr_used_volume[0] == 0
+        assert site.wafr_log == {}
 
 
 class TestCalcTransferLimits:

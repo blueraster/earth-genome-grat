@@ -1,8 +1,12 @@
 """Base class used for all recharge types."""
 
-import warnings
+import logging
 
 import numpy as np
+
+from .constants import DAYS_PER_WATER_YEAR
+
+logger = logging.getLogger(__name__)
 
 
 class BaseSite:
@@ -134,9 +138,9 @@ class BaseSite:
         self.bottleneck_ids = bottleneck_ids
 
         # init empty default values
-        self.used_volume = np.full(366, 0.0)
-        self.daily_recharge_volumes = np.full(366, 0.0)
-        self.precip = np.full(366, 0.0)
+        self.used_volume = np.full(DAYS_PER_WATER_YEAR, 0.0)
+        self.daily_recharge_volumes = np.full(DAYS_PER_WATER_YEAR, 0.0)
+        self.precip = np.full(DAYS_PER_WATER_YEAR, 0.0)
         self.wafr_log = {}
 
         # sort index (order sites are processed)
@@ -177,8 +181,8 @@ class BaseSite:
         writes the result into `self.precip`.
 
         Does nothing if the site has no precipitation grid or no dictionary is
-        supplied. Warns and leaves `self.precip` untouched if the site's grid is
-        missing from the dictionary.
+        supplied. Logs a warning and leaves `self.precip` untouched if the site's
+        grid is missing from the dictionary.
 
         Args:
             precip_dictionary: daily precipitation depth (decimal-feet) for the water
@@ -186,10 +190,10 @@ class BaseSite:
         """
         if self.precip_grid is not None and precip_dictionary is not None:
             if self.precip_grid not in precip_dictionary:
-                warnings.warn(
-                    f"Site {self.grat_id} has precip_grid {self.precip_grid} "
-                    f"which is not found in the precip_dictionary",
-                    stacklevel=2,
+                logger.warning(
+                    "Site %s has precip_grid %s which is not found in the precip_dictionary",
+                    self.grat_id,
+                    self.precip_grid,
                 )
                 return
 

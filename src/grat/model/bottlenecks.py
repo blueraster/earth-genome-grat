@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from .constants import DAYS_PER_WATER_YEAR
+
 
 class Bottleneck:
     """A daily delivery limit shared by every site behind it.
@@ -71,8 +73,8 @@ class Bottleneck:
         if irrigation_days is None:
             irrigation_days = []
 
-        throughput_array = np.full(366, fill_value=0.0)  # init empty array
-        for d in range(0, 366):
+        throughput_array = np.full(DAYS_PER_WATER_YEAR, fill_value=0.0)  # init empty array
+        for d in range(DAYS_PER_WATER_YEAR):
             if d in irrigation_days:
                 throughput_array[d] = self.capacity_irrigation
             else:
@@ -142,12 +144,10 @@ def bottleneck_capacity_logger(bottleneck_list: list):
         bottleneck_list: every bottleneck in the system.
 
     Returns:
-        One list per day, each holding the identifiers of the bottlenecks that hit
-        their limit that day. Note that this is 365 entries long while the
-        throughput arrays it reads hold 366, so a limit hit on the last day of a
-        leap year raises `IndexError`.
+        One list per day of the water year, each holding the identifiers of the
+        bottlenecks that hit their limit that day.
     """
-    capacity_hit_log = [[] for _ in range(365)]  # assumes multiple bottlenecks per day
+    capacity_hit_log = [[] for _ in range(DAYS_PER_WATER_YEAR)]  # assumes multiple bottlenecks per day
 
     for b in bottleneck_list:
         # use list comprehension to get index positions where available_throughput is less than zero?
