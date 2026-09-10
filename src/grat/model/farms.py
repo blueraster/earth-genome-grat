@@ -132,40 +132,6 @@ class Farm(BaseSite):
         else:
             self.ofrDailyRechargeVolumes[day] += newVolume
 
-    # def annualAFRecharge(self):
-    #     """
-    #     Sums up the daily recharge volumes (acre-feet) for the site OFR + in-lieu
-    #
-    #     Returns: annual recharge in acre-feet
-    #     """
-    #     return np.sum(self.ofrDailyRechargeVolumes) + np.sum(
-    #         self.inLieuDailyRechargeVolumes
-    #     )
-    #
-    # def annualAFRechargeInLieu(self):
-    #     """
-    #     Sums up the daily recharge volumes (acre-feet) for in-lieu
-    #
-    #     Returns: annual recharge in acre-feet
-    #     """
-    #     return np.sum(self.inLieuDailyRechargeVolumes)
-    #
-    # def annualAFRechargeOFR(self):
-    #     """
-    #     Sums up the daily recharge volumes (acre-feet) for OFR
-    #
-    #     Returns: annual recharge in acre-feet
-    #     """
-    #     return np.sum(self.ofrDailyRechargeVolumes)
-    #
-    # def annualUsedVolume(self):
-    #     """
-    #     Sums up the daily used volumes (acre-feet) for the site OFR + in-lieu
-    #
-    #     Returns: annual used volume in acre-feet
-    #     """
-    #     return np.sum(self.ofrUsedVolume) + np.sum(self.inLieuUsedVolume)
-
     def useSite(
         self,
         dowy: int,
