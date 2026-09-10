@@ -1,131 +1,158 @@
-"""
-Delivery limits to collection of sites
-"""
+"""Delivery limits shared by a group of sites."""
 
 import numpy as np
 
+from .constants import DAYS_PER_WATER_YEAR
+
 
 class Bottleneck:
+    """A daily delivery limit shared by every site behind it.
+
+    A bottleneck caps how much water can reach the sites that name it on a given
+    day, no matter how much WAFR is available. Each bottleneck is associated with
+    one or more WAFR sources and only limits water from those.
+
+    Sites name the bottlenecks that restrict them via their `bottleneck_ids`. A site
+    behind several bottlenecks is limited by the tightest of them.
+
+    Capacity is tracked as a running daily budget: `available_throughput` starts at
+    the day's capacity and is drawn down by `update_usage` as sites take water.
+
+    Attributes:
+        available_throughput: throughput still unused (acre-feet), one entry per day
+            of the water year. Drawn down as sites take water, and may go negative.
+    """
+
     def __init__(
         self,
-        bottleneckID: int,
-        name: str = None,
-        capacity: float = None,
-        wafrSources: list = None,
-        capacityIrrigation: float = None,
-        irrigationDays: list = None,
+        bottleneck_id: int,
+        name: str | None = None,
+        capacity: float | None = None,
+        wafr_sources: list | None = None,
+        capacity_irrigation: float | None = None,
+        irrigation_days: list | None = None,
         **kwargs,
     ):
-        """
-        Defines the bottleneck object that restricts daily flow to groups of sites. Each bottleneck is associated
-        with one or more WAFR sources. When provided, irrigationDays + capacityIrrigation modifies the
-        default daily bottleneck rate value during the days that are in the irrigation season.
+        """Build a bottleneck.
 
         Args:
-            bottleneckID:  bottleneck identifier
-            name: name of bottleneck (optional)
-            capacity: default limit in acre-feet per day.
-            wafrSources: name of the WAFR sources that supply water
-            capacityIrrigation: limit in acre-feet per day during irrigation season.
-            irrigationDays: list of days (zero index day of water year) that use the irrigation season capacity rate.
-            **kwargs: Optional additional parameters
-
+            bottleneck_id: bottleneck identifier, matched against a site's
+                `bottleneck_ids`.
+            name: human-readable name of the bottleneck.
+            capacity: throughput limit outside the irrigation season
+                (acre-feet per day).
+            wafr_sources: names of the WAFR sources this bottleneck restricts. Water
+                from any other source passes unrestricted.
+            capacity_irrigation: throughput limit during the irrigation season
+                (acre-feet per day).
+            irrigation_days: zero-indexed days of the water year that use
+                `capacity_irrigation` instead of `capacity`.
+            **kwargs: additional attributes, set directly on the instance.
         """
         # catch all extra kwargs provided to class instance
         self.__dict__.update(kwargs)  # catch all for all unknown kwargs
 
-        self.bottleneckID = bottleneckID
+        self.bottleneck_id = bottleneck_id
         self.name = name
-        self.wafrSources = wafrSources if wafrSources is not None else []  # names of the WAFR sources
+        self.wafr_sources = wafr_sources if wafr_sources is not None else []  # names of the WAFR sources
         self.capacity = capacity
-        self.capacityIrrigation = capacityIrrigation
-        self.availableThroughput = self._calculateThroughput(
-            irrigationDays if irrigationDays is not None else []
+        self.capacity_irrigation = capacity_irrigation
+        self.available_throughput = self._calculate_throughput(
+            irrigation_days if irrigation_days is not None else []
         )  # volume in acre-feet per day
 
-    def _calculateThroughput(self, irrigationDays=None):
-
-        if irrigationDays is None:
-            irrigationDays = []
-
-        throughPutArray = np.full(366, fill_value=0.0)  # init empty array
-        for d in range(0, 366):
-            if d in irrigationDays:
-                throughPutArray[d] = self.capacityIrrigation
-            else:
-                throughPutArray[d] = self.capacity
-
-        return throughPutArray
-
-    def updateUsage(self, day: int, amount: float):
-        """
-        Updates the bottleneck available throughput by subtracting the volume used by the site
+    def _calculate_throughput(self, irrigation_days: list | None = None):
+        """Build the daily throughput budget for the whole water year.
 
         Args:
-            day: zero-indexed day of the water year
-            amount: usage volume (AF) to subtract
-        """
-        self.availableThroughput[day] -= amount
-        return
-
-    def getAvailableThroughput(self, day: int):
-        """
-        Volume available to pass through the bottleneck
-
-        Args:
-            day: zero-indexed day of the water year
+            irrigation_days: zero-indexed days that use the irrigation season capacity.
 
         Returns:
-            dailyThroughput: throughput volume (AF) for a given bottleneck and day
+            Throughput limit (acre-feet per day) for each day of the water year.
         """
-        dailyThroughput = self.availableThroughput[day]
-        if dailyThroughput <= 0:
+        if irrigation_days is None:
+            irrigation_days = []
+
+        throughput_array = np.full(DAYS_PER_WATER_YEAR, fill_value=0.0)  # init empty array
+        for d in range(DAYS_PER_WATER_YEAR):
+            if d in irrigation_days:
+                throughput_array[d] = self.capacity_irrigation
+            else:
+                throughput_array[d] = self.capacity
+
+        return throughput_array
+
+    def update_usage(self, day: int, amount: float):
+        """Charge a volume against the bottleneck's remaining throughput for a day.
+
+        Args:
+            day: zero-indexed day of the water year.
+            amount: volume delivered through the bottleneck (acre-feet).
+        """
+        self.available_throughput[day] -= amount
+        return
+
+    def get_available_throughput(self, day: int):
+        """Return the volume that can still pass through the bottleneck on a day.
+
+        Args:
+            day: zero-indexed day of the water year.
+
+        Returns:
+            Remaining throughput (acre-feet). Clamped to zero, so an
+            over-subscribed bottleneck reports no capacity rather than a
+            negative one.
+        """
+        daily_throughput = self.available_throughput[day]
+        if daily_throughput <= 0:
             return 0
-        else:
-            return dailyThroughput
+        return daily_throughput
 
     def __repr__(self):
+        """Return every attribute of the bottleneck, including the full daily array."""
         return f"{self.__dict__}"
 
 
 # operations on list of bottlenecks
-def getBottlenecks(bottleneckList, bottleneckIDs, wafrSource):
-    """
-    Returns the object that matches the specific bottleneckID and WAFR source
+def get_bottlenecks(bottleneck_list: list, bottleneck_ids, wafr_source: str):
+    """Select the bottlenecks that restrict a given site's delivery from a source.
+
+    A bottleneck matches when its identifier is one the site names *and* it
+    restricts the WAFR source in question.
+
     Args:
-        bottleneckList: list of bottleneck objects
-        bottleneckIDs: identifier for the bottlenecks
-        wafrSource: name of the WAFR source that supplies water through the bottleneck
+        bottleneck_list: every bottleneck in the system.
+        bottleneck_ids: the identifiers named by the site. `None` means the site is
+            behind no bottlenecks.
+        wafr_source: name of the WAFR source supplying the water.
 
-    Returns: list of bottleneck objects that match the conditions
-
+    Returns:
+        The matching bottlenecks, empty if the site is unrestricted for this source.
     """
-    try:
-        bottlenecks_at_site = [
-            b for b in bottleneckList if b.bottleneckID in bottleneckIDs and wafrSource in b.wafrSources
-        ]
-        return bottlenecks_at_site
-    except Exception:
-        # print(bottleneckIDs, wafrSource)
+    if bottleneck_ids is None:
         return []
+    return [b for b in bottleneck_list if b.bottleneck_id in bottleneck_ids and wafr_source in b.wafr_sources]
 
 
-def bottleneckCapacityLogger(bottleneckList):
-    """
-    Daily array of the bottlenecks that reached capacity
+def bottleneck_capacity_logger(bottleneck_list: list):
+    """Report which bottlenecks ran out of capacity, day by day.
+
+    A bottleneck counts as having hit its limit on any day where its remaining
+    throughput has fallen to zero or below.
+
     Args:
-        bottleneckList: list of bottleneck objects
+        bottleneck_list: every bottleneck in the system.
 
-    Returns: array containing the list of bottleneck ids that reached capacity per day
-
+    Returns:
+        One list per day of the water year, each holding the identifiers of the
+        bottlenecks that hit their limit that day.
     """
+    capacity_hit_log = [[] for _ in range(DAYS_PER_WATER_YEAR)]  # assumes multiple bottlenecks per day
 
-    capacityHitLogger = [[] for _ in range(365)]  # assumes multiple bottlenecks per day
+    for b in bottleneck_list:
+        # use list comprehension to get index positions where available_throughput is less than zero?
+        hit_limit = [i for i, e in enumerate(b.available_throughput) if e <= 0]
+        for h in hit_limit:
+            capacity_hit_log[h].append(b.bottleneck_id)
 
-    for b in bottleneckList:
-        # use list comprehension to get index positions where availableThroughPut is less than zero?
-        hitLimit = [i for i, e in enumerate(b.availableThroughput) if e <= 0]
-        for h in hitLimit:
-            capacityHitLogger[h].append(b.bottleneckID)
-
-    return capacityHitLogger
+    return capacity_hit_log
