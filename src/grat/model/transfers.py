@@ -2,6 +2,8 @@
 
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 def calc_transfer_limits(wafr, transfer_wafr_source_list, district_transfer_goals=None):
     """Work out each district's transfer budget for the year.
@@ -45,7 +47,7 @@ def calc_transfer_limits(wafr, transfer_wafr_source_list, district_transfer_goal
     for district in district_transfer_goals:
         # check if there is a threshold defined
         if district_transfer_goals[district].get("THRESHOLD") is None:
-            logging.warning("Transfer threshold is None - no transfer limits will be set")
+            logger.warning("Transfer threshold is None - no transfer limits will be set")
             transfer_limits_per_district[district] = 0
             continue
 
@@ -53,7 +55,7 @@ def calc_transfer_limits(wafr, transfer_wafr_source_list, district_transfer_goal
         # remap the district to the wafr source name
         source = transfer_wafr_source_list.get(district)
         if source not in wafr:
-            logging.warning(f"Source {source} not found in WAFR data for {district}")
+            logger.warning("Source %s not found in WAFR data for %s", source, district)
             transfer_limits_per_district[district] = 0
             continue
 
@@ -61,9 +63,11 @@ def calc_transfer_limits(wafr, transfer_wafr_source_list, district_transfer_goal
 
         # check if total water available is less than the district's threshold
         if total_available_for_year < district_transfer_goals[district].get("THRESHOLD", 0):
-            logging.warning(
-                f"Total available water for transfer {total_available_for_year} is less than"
-                f" the threshold {district_transfer_goals[district].get('THRESHOLD', 0)} for {district}"
+            logger.warning(
+                "Total available water for transfer %s is less than the threshold %s for %s",
+                total_available_for_year,
+                district_transfer_goals[district].get("THRESHOLD", 0),
+                district,
             )
             transfer_limits_per_district[district] = 0
             continue

@@ -6,13 +6,13 @@ import numpy as np
 
 from . import bottlenecks
 from .base_site import BaseSite
+from .constants import CFS_TO_ACRE_FEET_PER_DAY, DAYS_PER_WATER_YEAR, DEFAULT_CFS_LIMIT
 
 
 def turnout_limit_conversion(cfs_rate):
     """Convert a turnout's flow rate into the volume it can deliver in a day.
 
-    One cubic-foot per second sustained for 24 hours is 86,400 cubic feet, which
-    is roughly 1.983 acre-feet.
+    See `constants.CFS_TO_ACRE_FEET_PER_DAY` for the conversion factor.
 
     Args:
         cfs_rate: flow rate (cubic-feet per second).
@@ -20,7 +20,7 @@ def turnout_limit_conversion(cfs_rate):
     Returns:
         Volume deliverable in one day (acre-feet per day).
     """
-    return cfs_rate * 1.983
+    return cfs_rate * CFS_TO_ACRE_FEET_PER_DAY
 
 
 class Farm(BaseSite):
@@ -81,21 +81,21 @@ class Farm(BaseSite):
 
         self.soil_type = soil_type
         self.cfs_limit = (
-            cfs_limit if cfs_limit is not None else 15
+            cfs_limit if cfs_limit is not None else DEFAULT_CFS_LIMIT
         )  # default rate of water that can be applied to a site
-        self.flow_limit = np.full(366, float(turnout_limit_conversion(self.cfs_limit)))
+        self.flow_limit = np.full(DAYS_PER_WATER_YEAR, float(turnout_limit_conversion(self.cfs_limit)))
 
         # # in lieu recharge attributes
         self.in_lieu_crop = in_lieu_crop
-        self.in_lieu_unused_volume = np.full(366, 0.0)
-        self.in_lieu_used_volume = np.full(366, 0.0)
-        self.in_lieu_daily_recharge_volumes = np.full(366, 0.0)
+        self.in_lieu_unused_volume = np.full(DAYS_PER_WATER_YEAR, 0.0)
+        self.in_lieu_used_volume = np.full(DAYS_PER_WATER_YEAR, 0.0)
+        self.in_lieu_daily_recharge_volumes = np.full(DAYS_PER_WATER_YEAR, 0.0)
 
-        self.ofr_unused_volume = np.full(366, 0.0)
-        self.ofr_used_volume = np.full(366, 0.0)
-        self.ofr_daily_recharge_volumes = np.full(366, 0.0)
+        self.ofr_unused_volume = np.full(DAYS_PER_WATER_YEAR, 0.0)
+        self.ofr_used_volume = np.full(DAYS_PER_WATER_YEAR, 0.0)
+        self.ofr_daily_recharge_volumes = np.full(DAYS_PER_WATER_YEAR, 0.0)
 
-        self.used_precip = np.full(366, 0.0)  # empty array to store precip that gets "used"
+        self.used_precip = np.full(DAYS_PER_WATER_YEAR, 0.0)  # empty array to store precip that gets "used"
 
     def get_site_volume(self, day: int, crop_calendar: dict, in_lieu: bool = False):
         """Return how much water the field could still take on a day.

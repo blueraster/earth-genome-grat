@@ -8,6 +8,8 @@ sites are offered anything.
 import logging
 import operator
 
+logger = logging.getLogger(__name__)
+
 
 def recharge_type_order(site):
     """Return the rank used to group sites by recharge type when sorting.
@@ -56,7 +58,7 @@ def none_aware_attrgetter(attr, reverse=False):
 
     def key_func(item):
         value = getter(item)
-        if reverse is True:
+        if reverse:
             return (value is not None, value)
         return (value is None, value)
 
@@ -123,7 +125,7 @@ def sort_sites(sites, sort_rule=None):
         The sites in processing order.
 
     Raises:
-        Exception: if `sort_rule` is not one of the supported values.
+        ValueError: if `sort_rule` is not one of the supported values.
     """
     if sort_rule is None:
         # sort by rsi score, acres and then finally by recharge type
@@ -141,7 +143,7 @@ def sort_sites(sites, sort_rule=None):
         s = sort_by_variables(sites, (("rma", False), ("rsi", True), ("acres", True)))
         s.sort(key=recharge_type_order)
     else:
-        raise Exception("Unknown sort rule selected")
+        raise ValueError(f"Unknown sort rule: {sort_rule!r}")
 
     # update sort_index parameter
     sorted_sites = []
@@ -185,20 +187,20 @@ def group_sites_by_recharge_type(site_list, use_in_lieu=True, use_ofr=True, rma_
 
     # Groundwater change used to sort in lieu sites. Within each RMA zone the
     # Lowest numbers (i.e most negative) have the highest priority.
-    if rma_sort is True:
-        logging.info("Sorting in-lieu sites by RMA rank")
+    if rma_sort:
+        logger.info("Sorting in-lieu sites by RMA rank")
         in_lieu_sites = sort_by_variables(in_lieu_sites_unordered, (("rma", False), ("groundwater_change", False)))
     else:
-        logging.info("Sorting in-lieu sites by groundwater_change only")
+        logger.info("Sorting in-lieu sites by groundwater_change only")
 
         in_lieu_sites = sort_by_variable(in_lieu_sites_unordered, "groundwater_change", False)
 
     ofr_sites = [s for s in site_list if s.recharge_type not in ["Basin", "Canal"] and s.crop is not None]
 
-    if use_in_lieu is False:
+    if not use_in_lieu:
         in_lieu_sites = []
 
-    if use_ofr is False:
+    if not use_ofr:
         ofr_sites = []
 
     return basin_list, in_lieu_sites, ofr_sites, canal_list

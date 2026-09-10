@@ -15,10 +15,13 @@ import pickle
 
 from grat.model.basins import basins_update_daily_values, fill_basins
 from grat.model.canals import canals_update_daily_values, fill_canals
+from grat.model.constants import DEFAULT_YEARS
 from grat.model.farms import use_farms
 from grat.model.sorters import group_sites_by_recharge_type
 from grat.model.transfers import calc_transfer_limits
 from grat.model.utils import check_wafr_availability, timer_func
+
+logger = logging.getLogger(__name__)
 
 # TODO - these are hard-code to remove need for config.py but need to be moved OSGRAT
 transfer_supply_sources = {}
@@ -188,7 +191,9 @@ def process_year(
     num_days = len(wafr[list(wafr.keys())[0]])
 
     # update the precip array for all the sites
-    [s.calc_precip(precip) for s in site_list if s.recharge_type != "Canal"]
+    for site in site_list:
+        if site.recharge_type != "Canal":
+            site.calc_precip(precip)
 
     basin_list, in_lieu_sites, ofr_sites, canal_list = group_sites_by_recharge_type(
         site_list, use_in_lieu, use_ofr, rma_sort=rma_sort
@@ -272,10 +277,10 @@ def start_analysis(
         transfer_goals = {}
 
     if years is None:
-        years = range(2001, 2100)
+        years = DEFAULT_YEARS
 
     for year in years:
-        logging.info(f"Running GRAT for {year}")
+        logger.info("Running GRAT for %s", year)
 
         # select just the current water year from the WAFR input
         year_raw_wafr = raw_wafr[year]

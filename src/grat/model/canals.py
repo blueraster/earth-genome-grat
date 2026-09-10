@@ -3,6 +3,7 @@
 import numpy as np
 
 from .basins import Basin
+from .constants import DAYS_PER_WATER_YEAR
 from .utils import sort_wafr_source_by_volume
 
 
@@ -65,8 +66,8 @@ class Canal(Basin):
         if irrigation_days is None:
             irrigation_days = []
 
-        capacity_array = np.full(366, fill_value=0.0)  # init empty array
-        for d in range(0, 366):
+        capacity_array = np.full(DAYS_PER_WATER_YEAR, fill_value=0.0)  # init empty array
+        for d in range(DAYS_PER_WATER_YEAR):
             if d in irrigation_days:
                 capacity_array[d] = 0.0
             else:
@@ -143,7 +144,7 @@ def proportionally_fill(
     volume_available_from_wafr = wafr[selected_wafr][day]  # volume available from this WAFR source
 
     if volume_available_from_wafr > 0:
-        if secondary_wafr is True:
+        if secondary_wafr:
             # select the canals that are supplied by the secondary WAFR source
             compatible_canals = [c for c in canal_list if selected_wafr in c.wafr_sources_secondary]
         else:
