@@ -81,8 +81,7 @@ class Bottleneck:
         dailyThroughput = self.availableThroughput[day]
         if dailyThroughput <= 0:
             return 0
-        else:
-            return dailyThroughput
+        return dailyThroughput
 
     def __repr__(self):
         return f"{self.__dict__}"
@@ -106,7 +105,6 @@ def getBottlenecks(bottleneckList, bottleneckIDs, wafrSource):
         ]
         return bottlenecks_at_site
     except Exception:
-        # print(bottleneckIDs, wafrSource)
         return []
 
 
