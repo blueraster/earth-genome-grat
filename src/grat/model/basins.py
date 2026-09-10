@@ -5,7 +5,7 @@ Percolation basins
 import math
 
 from . import bottlenecks
-from .baseSite import BaseSite
+from .base_site import BaseSite
 
 
 class Basin(BaseSite):

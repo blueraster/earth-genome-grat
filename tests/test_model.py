@@ -3,13 +3,13 @@ import logging
 
 import pytest
 
-from grat.model import baseSite, basins, bottlenecks, canals, farms, funcs, grat, sorters
+from grat.model import base_site, basins, bottlenecks, canals, farms, grat, sorters, utils
 from grat.model.transfers import calc_transfer_limits
 
 
 class TestBaseSite:
     def setup_method(self) -> None:
-        self.bs = baseSite.BaseSite(gratID=299, crop="Corn", acres=12.5, other="test")
+        self.bs = base_site.BaseSite(gratID=299, crop="Corn", acres=12.5, other="test")
 
     def test_setDailyRecharge(self):
 
@@ -1101,10 +1101,10 @@ class TestWafrSortOrder:
         self.wafr = {"SourceB": [50, 12000], "SourceA": [19, 300000]}
 
     def test_day0(self):
-        assert funcs.sortWafrSourceByVolume(self.wafr, 0) == ["SourceB", "SourceA"]
+        assert utils.sortWafrSourceByVolume(self.wafr, 0) == ["SourceB", "SourceA"]
 
     def test_day1(self):
-        assert funcs.sortWafrSourceByVolume(self.wafr, 1) == ["SourceA", "SourceB"]
+        assert utils.sortWafrSourceByVolume(self.wafr, 1) == ["SourceA", "SourceB"]
 
 
 class TestWafrAvailability:
@@ -1112,10 +1112,10 @@ class TestWafrAvailability:
         self.wafr = {"SourceB": [50, 12000, 0, 0], "SourceA": [19, 300000, 0, 1]}
 
     def test_day0(self):
-        assert funcs.checkWafrAvailability(self.wafr, 0)
+        assert utils.checkWafrAvailability(self.wafr, 0)
 
     def test_day2(self):
-        assert not funcs.checkWafrAvailability(self.wafr, 2)
+        assert not utils.checkWafrAvailability(self.wafr, 2)
 
 
 class TestGetCompatibleCrops:
@@ -1126,26 +1126,26 @@ class TestGetCompatibleCrops:
         }
 
     def test_day0(self):
-        assert funcs.getCompatibleCropsSoilsForDay(self.ccc, 0) == [("Corn", "Good")]
+        assert utils.getCompatibleCropsSoilsForDay(self.ccc, 0) == [("Corn", "Good")]
 
     def test_day1(self):
-        assert funcs.getCompatibleCropsSoilsForDay(self.ccc, 1) == [
+        assert utils.getCompatibleCropsSoilsForDay(self.ccc, 1) == [
             ("Corn", "Poor"),
             ("Rice", "Good"),
         ]
 
     def test_day2(self):
-        assert funcs.getCompatibleCropsSoilsForDay(self.ccc, 2) == [
+        assert utils.getCompatibleCropsSoilsForDay(self.ccc, 2) == [
             ("Corn", "Poor"),
             ("Corn", "Good"),
             ("Rice", "Great"),
         ]
 
     def test_day3(self):
-        assert funcs.getCompatibleCropsSoilsForDay(self.ccc, 3) == []
+        assert utils.getCompatibleCropsSoilsForDay(self.ccc, 3) == []
 
     def test_None(self):
-        assert funcs.getCompatibleCropsSoilsForDay(None, 2) == []
+        assert utils.getCompatibleCropsSoilsForDay(None, 2) == []
 
 
 # NOTE: grat.py has not been ported to this project yet, see comment above.
@@ -1273,9 +1273,9 @@ class TestSubsetSiteList:
         }
 
     def test_getWafrSourcesWithWater(self):
-        assert funcs.sortWafrSourceByVolume(self.wafr, 0) == ["CalDuck"]
-        assert funcs.sortWafrSourceByVolume(self.wafr, 1) == []
-        assert funcs.sortWafrSourceByVolume(self.wafr, 4) == [
+        assert utils.sortWafrSourceByVolume(self.wafr, 0) == ["CalDuck"]
+        assert utils.sortWafrSourceByVolume(self.wafr, 1) == []
+        assert utils.sortWafrSourceByVolume(self.wafr, 4) == [
             "Calaveras",
             "Duck",
             "CalDuck",

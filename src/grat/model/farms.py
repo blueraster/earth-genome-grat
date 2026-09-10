@@ -7,7 +7,7 @@ import math
 import numpy as np
 
 from . import bottlenecks
-from .baseSite import BaseSite
+from .base_site import BaseSite
 
 
 def turnoutLimitConversion(cfsRate):

@@ -8,9 +8,9 @@ import pickle
 from grat.model.basins import basinsUpdateDailyValues, fillBasins
 from grat.model.canals import canalsUpdateDailyValues, fillCanals
 from grat.model.farms import useFarms
-from grat.model.funcs import checkWafrAvailability, timer_func
 from grat.model.sorters import groupSitesByRechargeType
 from grat.model.transfers import calc_transfer_limits
+from grat.model.utils import checkWafrAvailability, timer_func
 
 # TODO - these are hard-code to remove need for config.py but need to be moved OSGRAT
 transfer_supply_sources = {}

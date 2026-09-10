@@ -5,7 +5,7 @@ Conveyance system
 import numpy as np
 
 from .basins import Basin
-from .funcs import sortWafrSourceByVolume
+from .utils import sortWafrSourceByVolume
 
 
 class Canal(Basin):
@@ -59,8 +59,7 @@ class Canal(Basin):
 
         if self.maxCapacity[day] == 0:
             return 0  # no capacity on this day (irrigation season). Assumed full (perc accounted in different model)
-        else:
-            return max(self.maxCapacity[day] - self.currentCapacity + self.percRate, 0)
+        return max(self.maxCapacity[day] - self.currentCapacity + self.percRate, 0)
 
     def useCanal(self, day: int, wafr: dict, source: str, usableVolFromSource: float):
         """
