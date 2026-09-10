@@ -18,7 +18,6 @@ This installs runtime and dev dependencies into a local `.venv`.
    uv run pytest
    uv run ruff check .
    uv run ruff format --check .
-   uv run mypy
    ```
 
 4. Open a pull request describing the change and, if user-facing, add an entry
@@ -27,5 +26,4 @@ This installs runtime and dev dependencies into a local `.venv`.
 ## Code style
 
 - Formatting and linting are enforced by [ruff](https://docs.astral.sh/ruff/).
-- Public functions and classes should have type annotations (checked by mypy
-  in strict mode).
+- Docstrings follow Google convention

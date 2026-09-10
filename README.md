@@ -1,6 +1,6 @@
 # grat
 
-[![CI](https://github.com/<owner>/grat/actions/workflows/ci.yml/badge.svg)](https://github.com/<owner>/grat/actions/workflows/ci.yml)
+[![CI](https://github.com/blueraster/grat/actions/workflows/ci.yml/badge.svg)](https://github.com/blueraster/grat/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/grat.svg)](https://pypi.org/project/grat/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -27,7 +27,6 @@ uv sync                  # install dependencies (incl. dev group) into .venv
 uv run pytest            # run tests
 uv run ruff check .      # lint
 uv run ruff format .     # format
-uv run mypy              # type-check
 ```
 
 ## Contributing
