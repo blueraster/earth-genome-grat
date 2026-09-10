@@ -3,7 +3,7 @@ import logging
 import operator
 
 
-def rechargeTypeOrder(site):
+def recharge_type_order(site):
     """
     Set the sort priority order depending on recharge type
     Args:
@@ -12,14 +12,13 @@ def rechargeTypeOrder(site):
     Returns:
 
     """
-    if site.rechargeType == "Canal":
+    if site.recharge_type == "Canal":
         return 1
-    elif site.rechargeType == "Basin":
+    if site.recharge_type == "Basin":
         return 2
-    elif site.rechargeType == "OFR":
+    if site.recharge_type == "OFR":
         return 3
-    else:
-        return 4
+    return 4
 
 
 def none_aware_attrgetter(attr, reverse=False):
@@ -37,8 +36,7 @@ def none_aware_attrgetter(attr, reverse=False):
         value = getter(item)
         if reverse is True:
             return (value is not None, value)
-        else:
-            return (value is None, value)
+        return (value is None, value)
 
     return key_func
 
@@ -57,16 +55,14 @@ def sort_by_variable(list_of_sites, variable, reverse=False):
     Returns: sorted list of objects
     """
 
-    s = sorted(list_of_sites, key=none_aware_attrgetter(variable, reverse), reverse=reverse)
-
-    return s
+    return sorted(list_of_sites, key=none_aware_attrgetter(variable, reverse), reverse=reverse)
 
 
 def sort_by_variables(list_of_sites, specs):
     """
     Sorts list of objects by attribute properties. Specify property names in least to most restrictive order
 
-    sort_by_variables([siteA(), siteB()...], (("acres", True), ("index", True))
+    sort_by_variables([site_a(), site_b()...], (("acres", True), ("index", True))
 
     https://docs.python.org/3/howto/sorting.html
     Args:
@@ -81,85 +77,85 @@ def sort_by_variables(list_of_sites, specs):
     return list_of_sites
 
 
-def sortSites(sitesList, sortRule=None):
+def sort_sites(sites, sort_rule=None):
     """
     Orders sites objects by various scenarios by sorting multiple object properties.
     The order the Object properties to sort by is important (most restrictive -> least).
     Always sort final list by recharge type last.
 
     Args:
-        sitesList: list of unordered site object
-        sortRule: name of the scenario's sort rule
+        sites: list of unordered site object
+        sort_rule: name of the scenario's sort rule
 
     Returns: sorted list of sites
 
     """
 
-    if sortRule is None:
+    if sort_rule is None:
         # sort by rsi score, acres and then finally by recharge type
-        s = sort_by_variables(sitesList, (("rsi", True), ("acres", True)))
-        s.sort(key=rechargeTypeOrder)
+        s = sort_by_variables(sites, (("rsi", True), ("acres", True)))
+        s.sort(key=recharge_type_order)
 
-    elif sortRule == "A":
+    elif sort_rule == "A":
         # test scenario for sorting
         # sort by recharge type, scenario, index score, acres
-        s = sort_by_variables(sitesList, (("scenarioA", True), ("rsi", True), ("acres", True)))
-        s.sort(key=rechargeTypeOrder)
+        s = sort_by_variables(sites, (("scenario_a", True), ("rsi", True), ("acres", True)))
+        s.sort(key=recharge_type_order)
 
-    elif sortRule == "RMA":
+    elif sort_rule == "RMA":
         # sort by RMA rank,rsi score, acres and then finally by recharge type
-        s = sort_by_variables(sitesList, (("rma", False), ("rsi", True), ("acres", True)))
-        s.sort(key=rechargeTypeOrder)
+        s = sort_by_variables(sites, (("rma", False), ("rsi", True), ("acres", True)))
+        s.sort(key=recharge_type_order)
     else:
         raise Exception("Unknown sort rule selected")
 
-    # update sortIndex parameter
-    sortedSitesList = []
+    # update sort_index parameter
+    sorted_sites = []
 
     for i, site in enumerate(s):
-        site.sortIndex = i + 1
-        sortedSitesList.append(site)
+        site.sort_index = i + 1
+        sorted_sites.append(site)
 
-    return sortedSitesList
+    return sorted_sites
 
 
-def groupSitesByRechargeType(siteList, useInLieu=True, useOFR=True, rmaSort=False):
+def group_sites_by_recharge_type(site_list, use_in_lieu=True, use_ofr=True, rma_sort=False):
     """
-    Splits siteList into sublists by type (basins, in-lieu, on farm recharge)
+    Splits site_list into sublists by type (basins, in-lieu, on farm recharge)
     Args:
-        siteList: list of objects (basins, farms)
-        useInLieu: boolean if in-lieu sites should be included
-        useOFR: boolean if on farm recharge sites should be included
-        rmaSort: boolean if the in-lieu sites should be sorted by rma rank
+        site_list: list of objects (basins, farms)
+        use_in_lieu: boolean if in-lieu sites should be included
+        use_ofr: boolean if on farm recharge sites should be included
+        rma_sort: boolean if the in-lieu sites should be sorted by rma rank
     Returns: list of basins, list of in-lieu sites, list of ofr sites, list of canals
 
     """
-    basinList = [s for s in siteList if s.rechargeType == "Basin"]
-    canalList = [s for s in siteList if s.rechargeType == "Canal"]
+    basin_list = [s for s in site_list if s.recharge_type == "Basin"]
+    canal_list = [s for s in site_list if s.recharge_type == "Canal"]
 
-    inLieuSites_unordered = [
-        s for s in siteList if s.rechargeType not in ["Basin", "Canal"] and s.inLieuCrop is not None
+    in_lieu_sites_unordered = [
+        s for s in site_list if s.recharge_type not in ["Basin", "Canal"] and s.in_lieu_crop is not None
     ]
 
     # Groundwater change used to sort in lieu sites. Within each RMA zone the
     # Lowest numbers (i.e most negative) have the highest priority.
-    if rmaSort is True:
+    if rma_sort is True:
         logging.info("Sorting in-lieu sites by RMA rank")
-        inLieuSites = sort_by_variables(inLieuSites_unordered, (("rma", False), ("groundwaterChange", False)))
+        in_lieu_sites = sort_by_variables(in_lieu_sites_unordered, (("rma", False), ("groundwater_change", False)))
     else:
-        logging.info("Sorting in-lieu sites by groundwaterChange only")
+        logging.info("Sorting in-lieu sites by groundwater_change only")
 
-        inLieuSites = sort_by_variable(inLieuSites_unordered, "groundwaterChange", False)
+        in_lieu_sites = sort_by_variable(in_lieu_sites_unordered, "groundwater_change", False)
 
-    ofrSites = [s for s in siteList if s.rechargeType not in ["Basin", "Canal"] and s.crop is not None]
+    ofr_sites = [s for s in site_list if s.recharge_type not in ["Basin", "Canal"] and s.crop is not None]
 
-    if useInLieu is False:
-        inLieuSites = []
+    if use_in_lieu is False:
+        in_lieu_sites = []
 
-    if useOFR is False:
-        ofrSites = []
+    if use_ofr is False:
+        ofr_sites = []
 
-    return basinList, inLieuSites, ofrSites, canalList
+    return basin_list, in_lieu_sites, ofr_sites, canal_list
 
 
 def mlrp_sorter(sites, gsa_target_percentage=None):
@@ -188,15 +184,14 @@ def mlrp_sorter(sites, gsa_target_percentage=None):
         total_gsa_acreage[gsa] = total_gsa_acreage[gsa] * gsa_target_percentage.get(gsa, 0)  # fallback is zero MLRP
 
     # temporarily sort sites by MLRP rank
-    sites.sort(key=none_aware_attrgetter("mlrpScore", False))
+    sites.sort(key=none_aware_attrgetter("mlrp_score", False))
 
     for site in sites:
         # get the current district
         gsa = site.agency
         if total_gsa_acreage[gsa] <= 0:
             continue
-        else:
-            total_gsa_acreage[gsa] -= site.acres
-            site.crop = "MLRP"
-            site.inLieuCrop = None  # reset in-lieu crop if it was set
+        total_gsa_acreage[gsa] -= site.acres
+        site.crop = "MLRP"
+        site.in_lieu_crop = None  # reset in-lieu crop if it was set
     return

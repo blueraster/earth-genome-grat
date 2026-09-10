@@ -7,23 +7,22 @@ import math
 import numpy as np
 
 from . import bottlenecks
-from .baseSite import BaseSite
+from .base_site import BaseSite
 
 
-def turnoutLimitConversion(cfsRate):
+def turnout_limit_conversion(cfs_rate):
     """
     Converts turnout limit in cubic-feet per second to acre-feet per day
     Args:
-        cfsRate: flow rate in cubic feet per second
+        cfs_rate: flow rate in cubic feet per second
 
     Returns: volume in acre-feet per day
     """
-    afPerDay = cfsRate * 1.983
-    return afPerDay
+    return cfs_rate * 1.983
 
 
 class Farm(BaseSite):
-    def __init__(self, soilType, cfsLimit, crop=None, inLieuCrop=None, **kwargs):
+    def __init__(self, soil_type, cfs_limit, crop=None, in_lieu_crop=None, **kwargs):
         """
         Class for sites that are in agriculture (on-farm & in-lieu)
 
@@ -38,240 +37,241 @@ class Farm(BaseSite):
 
 
         Args:
-            soilType: soil classification from SAGBI
-            cfsLimit: rate water can be applied to site (cubic-feet per second)
+            soil_type: soil classification from SAGBI
+            cfs_limit: rate water can be applied to site (cubic-feet per second)
             **kwargs: all other BaseSite args
         """
         super().__init__(**kwargs)
         self.crop = crop
 
-        self.soilType = soilType
-        self.cfsLimit = cfsLimit if cfsLimit is not None else 15  # default rate of water that can be applied to a site
-        self.flowLimit = np.full(366, float(turnoutLimitConversion(self.cfsLimit)))
+        self.soil_type = soil_type
+        self.cfs_limit = (
+            cfs_limit if cfs_limit is not None else 15
+        )  # default rate of water that can be applied to a site
+        self.flow_limit = np.full(366, float(turnout_limit_conversion(self.cfs_limit)))
 
         # # in lieu recharge attributes
-        self.inLieuCrop = inLieuCrop
-        self.inLieuUnusedVolume = np.full(366, 0.0)
-        self.inLieuUsedVolume = np.full(366, 0.0)
-        self.inLieuDailyRechargeVolumes = np.full(366, 0.0)
+        self.in_lieu_crop = in_lieu_crop
+        self.in_lieu_unused_volume = np.full(366, 0.0)
+        self.in_lieu_used_volume = np.full(366, 0.0)
+        self.in_lieu_daily_recharge_volumes = np.full(366, 0.0)
 
-        self.ofrUnusedVolume = np.full(366, 0.0)
-        self.ofrUsedVolume = np.full(366, 0.0)
-        self.ofrDailyRechargeVolumes = np.full(366, 0.0)
+        self.ofr_unused_volume = np.full(366, 0.0)
+        self.ofr_used_volume = np.full(366, 0.0)
+        self.ofr_daily_recharge_volumes = np.full(366, 0.0)
 
-        self.usedPrecip = np.full(366, 0.0)  # empty array to store precip that gets "used"
+        self.used_precip = np.full(366, 0.0)  # empty array to store precip that gets "used"
 
-    def getSiteVolume(self, day: int, cropCalendar: dict, inlieu: bool = False):
+    def get_site_volume(self, day: int, crop_calendar: dict, in_lieu: bool = False):
         """
         Return the potential volume of water a site could receive on a given day
 
         Args:
             day: zero-indexed day of the water year
-            cropCalendar: dictionary that contains info for the amount of water that can be applied to a specific crop
+            crop_calendar: dictionary that contains info for the amount of water that can be applied to a specific crop
         Returns: site volume in acre-feet (minimum of flow limit or crop accepted rate)
 
         """
-        if inlieu:
-            if self.regionNumber is not None:
-                cropAcceptedRate = (
-                    cropCalendar[self.inLieuCrop][str(self.regionNumber)][day] * self.acres - self.inLieuUsedVolume[day]
+        if in_lieu:
+            if self.region_number is not None:
+                crop_accepted_rate = (
+                    crop_calendar[self.in_lieu_crop][str(self.region_number)][day] * self.acres
+                    - self.in_lieu_used_volume[day]
                 )
             else:
-                cropAcceptedRate = 0
+                crop_accepted_rate = 0
         else:
-            cropAcceptedRate = cropCalendar[self.crop][self.soilType][day] * self.acres - self.ofrUsedVolume[day]
+            crop_accepted_rate = crop_calendar[self.crop][self.soil_type][day] * self.acres - self.ofr_used_volume[day]
 
-        siteVolume = (
-            cropAcceptedRate
+        return (
+            crop_accepted_rate
             - self.precip[day]  # removes volume from the daily precip
-            + self.usedPrecip[day]  # avoids double counting precip
+            + self.used_precip[day]  # avoids double counting precip
         )
 
-        return siteVolume
-
-    def setUnused(self, day: int, volume: float, inlieu: bool = False):
+    def set_unused(self, day: int, volume: float, in_lieu: bool = False):
         """
         Sets the unused volume (acre-feet) of a site for a specific day
         Args:
             day: zero-index day of the water year
-            volume: amount to set for unusedVolume for a specific date
-            inlieu: boolean to control if the update is for in-lieu recharge or OFR
+            volume: amount to set for unused_volume for a specific date
+            in_lieu: boolean to control if the update is for in-lieu recharge or OFR
 
         """
-        if inlieu:
-            self.inLieuUnusedVolume[day] = volume
+        if in_lieu:
+            self.in_lieu_unused_volume[day] = volume
         else:
-            self.ofrUnusedVolume[day] = volume
+            self.ofr_unused_volume[day] = volume
 
-    def setUsedVolume(self, day: int, newVolume: float, inlieu: bool = False):
+    def set_used_volume(self, day: int, new_volume: float, in_lieu: bool = False):
         """
-        Adds the water applied (acre-feet) to the existing usedVolume array value for the date
+        Adds the water applied (acre-feet) to the existing used_volume array value for the date
         Args:
             day: index date
-            newVolume: volume that was applied (acre-feet)
-            inlieu: boolean to control if the update is for in-lieu recharge or OFR
+            new_volume: volume that was applied (acre-feet)
+            in_lieu: boolean to control if the update is for in-lieu recharge or OFR
 
         """
-        if inlieu:
-            self.inLieuUsedVolume[day] += newVolume
+        if in_lieu:
+            self.in_lieu_used_volume[day] += new_volume
         else:
-            self.ofrUsedVolume[day] += newVolume
+            self.ofr_used_volume[day] += new_volume
 
         return
 
-    def setDailyRecharge(self, day: int, newVolume: float, inlieu: bool = False):
+    def set_daily_recharge(self, day: int, new_volume: float, in_lieu: bool = False):
         """
         Update the daily recharge by adding the new volume to the existing value
         Args:
             day: array index to update
-            newVolume: volume to add (acre-feet)
-            inlieu: boolean to control if the update is for in-lieu recharge or OFR
+            new_volume: volume to add (acre-feet)
+            in_lieu: boolean to control if the update is for in-lieu recharge or OFR
         """
-        if inlieu:
-            self.inLieuDailyRechargeVolumes[day] += newVolume
+        if in_lieu:
+            self.in_lieu_daily_recharge_volumes[day] += new_volume
         else:
-            self.ofrDailyRechargeVolumes[day] += newVolume
+            self.ofr_daily_recharge_volumes[day] += new_volume
 
-    def useSite(
+    def use_site(
         self,
         dowy: int,
         wafr: dict,
-        bottleneckList: list,
-        cropCalendar: dict,
-        inLieu: bool = False,
-        secondaryWAFR: bool = False,
-        transferLimits: dict = None,
+        bottleneck_list: list,
+        crop_calendar: dict,
+        in_lieu: bool = False,
+        secondary_wafr: bool = False,
+        transfer_limits: dict = None,
     ):
         """
         Add water to the site as on-farm-recharge or in-lieu recharge.
         Args:
             dowy: zero indexed day of the water year
             wafr: water available for recharge. The current availability of water (in acre-feet) by water source.
-            bottleneckList: list of bottleneck objects
-            cropCalendar: crop / soil combo to determine if field can take water.
-            inLieu: water applied in lieu of pumping groundwater
-            secondaryWAFR: controls which list of sources should be used
-            transferLimits: dictionary of district-level yearly transfer limits
+            bottleneck_list: list of bottleneck objects
+            crop_calendar: crop / soil combo to determine if field can take water.
+            in_lieu: water applied in lieu of pumping groundwater
+            secondary_wafr: controls which list of sources should be used
+            transfer_limits: dictionary of district-level yearly transfer limits
 
         """
 
-        wafrSourceList = self.wafrSourcesSecondary if secondaryWAFR else self.wafrSourcesPrimary
+        wafr_source_list = self.wafr_sources_secondary if secondary_wafr else self.wafr_sources_primary
 
         # check if the transfer limit has been exceeded for the district if applicable
-        if transferLimits is not None and self.district in transferLimits and transferLimits[self.district] <= 0:
+        if transfer_limits is not None and self.district in transfer_limits and transfer_limits[self.district] <= 0:
             # no water can be applied to the site from the sources subject to the transfer limit
-            transfer_sources_for_district = transferLimits.get("transfer_wafr_sources", {}).get(self.district, [])
+            transfer_sources_for_district = transfer_limits.get("transfer_wafr_sources", {}).get(self.district, [])
             if isinstance(transfer_sources_for_district, str):
                 transfer_sources_for_district = [transfer_sources_for_district]
 
-            wafrSourceList = [item for item in wafrSourceList if item not in transfer_sources_for_district]
+            wafr_source_list = [item for item in wafr_source_list if item not in transfer_sources_for_district]
 
         # loop through each of the compatible sources that can supply water to the site
-        for wafrsrc in wafrSourceList:
+        for wafrsrc in wafr_source_list:
             # calculate the amount of water that can come from WAFR
             try:
-                volumeAvailableFromWafr = wafr[wafrsrc][dowy]
-            except Exception:
-                volumeAvailableFromWafr = 0
+                volume_available_from_wafr = wafr[wafrsrc][dowy]
+            except KeyError:
+                volume_available_from_wafr = 0
 
             # if volume from WAFR == zero skip
             # no water is available from source so nothing can be applied to the site
-            if volumeAvailableFromWafr > 0:
+            if volume_available_from_wafr > 0:
                 # how much water can be applied to the crop type for this day?
-                availableSiteVolume = max(self.getSiteVolume(dowy, cropCalendar, inlieu=inLieu), 0)
+                available_site_volume = max(self.get_site_volume(dowy, crop_calendar, in_lieu=in_lieu), 0)
 
-                if availableSiteVolume <= 0:
+                if available_site_volume <= 0:
                     break
 
                 # determine how much water can be delivered through the bottlenecks
                 # get the bottlepoint object for the wafr source that restrict delivery to this site
-                bottlePoints = bottlenecks.getBottlenecks(bottleneckList, self.bottleneckIDs, wafrsrc)
+                bottleneck_points = bottlenecks.get_bottlenecks(bottleneck_list, self.bottleneck_ids, wafrsrc)
 
-                if len(bottlePoints) > 0:
+                if len(bottleneck_points) > 0:
                     # get the minimum available throughput from the bottlenecks
-                    availableThroughput = min([bp.getAvailableThroughput(dowy) for bp in bottlePoints])
+                    available_throughput = min([bp.get_available_throughput(dowy) for bp in bottleneck_points])
                 else:
-                    availableThroughput = math.inf
+                    available_throughput = math.inf
 
                 # water applied for groundwater recharge
-                wafrApplied = min(
-                    availableSiteVolume,
-                    volumeAvailableFromWafr,
-                    availableThroughput,
-                    self.flowLimit[dowy],
+                wafr_applied = min(
+                    available_site_volume,
+                    volume_available_from_wafr,
+                    available_throughput,
+                    self.flow_limit[dowy],
                 )
                 # update values only if water is applied
-                if wafrApplied > 0:
+                if wafr_applied > 0:
                     # update the used volume array
-                    self.setUsedVolume(dowy, wafrApplied, inlieu=inLieu)
+                    self.set_used_volume(dowy, wafr_applied, in_lieu=in_lieu)
 
                     # update the unused volume array
-                    unused_vol = availableSiteVolume - wafrApplied
+                    unused_vol = available_site_volume - wafr_applied
 
-                    self.setUnused(dowy, unused_vol, inlieu=inLieu)
+                    self.set_unused(dowy, unused_vol, in_lieu=in_lieu)
 
                     # set daily recharge array
-                    self.setDailyRecharge(dowy, wafrApplied, inlieu=inLieu)
+                    self.set_daily_recharge(dowy, wafr_applied, in_lieu=in_lieu)
 
                     # subtract water applied from wafr so it is unavailable
-                    wafr[wafrsrc][dowy] -= wafrApplied
+                    wafr[wafrsrc][dowy] -= wafr_applied
 
-                    # subtract water from the flowLimit
-                    self.flowLimit[dowy] -= wafrApplied
+                    # subtract water from the flow_limit
+                    self.flow_limit[dowy] -= wafr_applied
 
                     # update wafr source log
-                    self.setWafrLog(wafrsrc, wafrApplied)
+                    self.set_wafr_log(wafrsrc, wafr_applied)
 
-                    # updated usedPrecip
-                    self.usedPrecip[dowy] = self.precip[dowy]
+                    # updated used_precip
+                    self.used_precip[dowy] = self.precip[dowy]
 
                     # update bottlenecks usage
-                    if len(bottlePoints) > 0:
-                        for bp in bottlePoints:
-                            bp.updateUsage(dowy, wafrApplied)
+                    if len(bottleneck_points) > 0:
+                        for bp in bottleneck_points:
+                            bp.update_usage(dowy, wafr_applied)
 
                     # update transfer limits
-                    if transferLimits is not None and self.district in transferLimits:
-                        transferLimits[self.district] -= wafrApplied
+                    if transfer_limits is not None and self.district in transfer_limits:
+                        transfer_limits[self.district] -= wafr_applied
         return
 
     def __repr__(self):
         return f"{self.__dict__}"
 
 
-def useFarms(
-    siteList,
+def use_farms(
+    site_list,
     day,
     wafr,
-    bottleneckList,
-    cropCalendar,
-    inLieu=False,
-    secondaryWAFR=False,
-    transferLimits=None,
+    bottleneck_list,
+    crop_calendar,
+    in_lieu=False,
+    secondary_wafr=False,
+    transfer_limits=None,
 ):
     """
     Loop through the list of sites and try to use the site
     Args:
-        siteList: list of sites (OFR & in lieu)
+        site_list: list of sites (OFR & in lieu)
         day: zero-indexed day of the water year
         wafr: water available for recharge dictionary
-        bottleneckList: list of bottlenecks
-        cropCalendar: dictionary of the crop compatibility calendar
-        inLieu: boolean - is water applied in lieu of groundwater pumping
-        secondaryWAFR: controls which list of sources should be used
-        transferLimits: dictionary of district-level yearly transfer limits
+        bottleneck_list: list of bottlenecks
+        crop_calendar: dictionary of the crop compatibility calendar
+        in_lieu: boolean - is water applied in lieu of groundwater pumping
+        secondary_wafr: controls which list of sources should be used
+        transfer_limits: dictionary of district-level yearly transfer limits
 
     Returns:
 
     """
-    for s in siteList:
-        s.useSite(
+    for s in site_list:
+        s.use_site(
             day,
             wafr,
-            bottleneckList,
-            cropCalendar,
-            inLieu=inLieu,
-            secondaryWAFR=secondaryWAFR,
-            transferLimits=transferLimits,
+            bottleneck_list,
+            crop_calendar,
+            in_lieu=in_lieu,
+            secondary_wafr=secondary_wafr,
+            transfer_limits=transfer_limits,
         )
     return
