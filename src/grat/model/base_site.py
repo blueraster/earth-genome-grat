@@ -52,9 +52,6 @@ class BaseSite:
             **kwargs: Optional additional parameters
         """
 
-        # catch all extra kwargs provided to class instance
-        # self.__dict__.update(kwargs)  # catch all for all unknown kwargs
-
         # site info
         self.gratID = gratID
         self.acres = acres
