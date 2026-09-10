@@ -1,5 +1,13 @@
-"""
-Main logic for water allocation for canals, basins, sites
+"""Top-level water allocation across canals, basins and farms.
+
+GRAT allocates each day's water available for recharge (WAFR) to the sites that
+can take it, working down a priority order. `start_analysis` runs a span of
+years, `process_year` runs one, and `use_sites` runs a single day.
+
+Within a day the order is fixed: canals, then in-lieu fields, then basins, then
+on-farm recharge. That whole sequence runs twice — once drawing on each
+district's own (primary) sources, and again on other districts' (secondary)
+sources for whatever is left.
 """
 
 import logging
@@ -28,23 +36,32 @@ def use_sites(
     crop_calendar_in_lieu,
     transfer_limits,
 ):
-    """
-    Runs through canals, in-lieu, basins, ofr sites in order and calculates recharge if the site can accept it.
+    """Allocate a single day's water across every site that can take it.
+
+    Runs the priority order twice: first against each district's own primary
+    sources, then against secondary sources from other districts for whatever
+    water is left. Within each pass the order is canals, in-lieu fields, basins,
+    on-farm recharge. The three site types after canals are skipped entirely if
+    the day's water is already spent.
+
+    Ends by draining the day's percolation from the canals and basins into
+    groundwater recharge.
+
     Args:
-        day: zero-indexed day of the water year
-        wafr: dictionary of water available for recharge
-        canal_list: list of canal objects
-        basin_list: list of basins
-        in_lieu_sites: list of in-lieu sites
-        ofr_sites: list of OFR sites
-        bottlenecks: list of bottleneck objects
-        crop_calendar: dictionary of the times of the year that determine when crops can accept water for OFR
-        crop_calendar_in_lieu: dictionary of the times of the year that determine when crops can accept water
-            for in-lieu
-        transfer_limits: dictionary of transfer limits for each district
-
-    Returns:
-
+        day: zero-indexed day of the water year.
+        wafr: volume still available (acre-feet) per day, keyed by WAFR source
+            name. **Mutated**: water applied is subtracted from it.
+        canal_list: canals, in processing order.
+        basin_list: basins, in processing order.
+        in_lieu_sites: in-lieu fields, in processing order.
+        ofr_sites: on-farm recharge fields, in processing order.
+        bottlenecks: every bottleneck in the system. **Mutated**.
+        crop_calendar: accepted application rate (feet per day) for on-farm
+            recharge, indexed as `[crop][soil_type][day]`.
+        crop_calendar_in_lieu: accepted application rate (feet per day) for
+            in-lieu recharge, indexed as `[crop][region_number][day]`.
+        transfer_limits: remaining yearly transfer budget (acre-feet) per
+            district. **Mutated**.
     """
     # use primary wafr sources to fill canals first
     fill_canals(canal_list, day, wafr, secondary_wafr=False)
@@ -134,24 +151,36 @@ def process_year(
     rma_sort=True,
     transfer_limits=None,
 ):
-    """
-    Run GRAT for a single year. Iterate over the sites in order and apply water
+    """Run GRAT for a single water year.
+
+    Applies precipitation to every site except canals, groups the sites by
+    recharge type, then walks the year one day at a time allocating water. The
+    length of the year is taken from the WAFR series, so a 366-entry series runs
+    a leap year.
 
     Args:
-        site_list: lists of canals, basins, farms
-        bottleneck_list: list of bottleneck objects
-        wafr: dictionary of water available for recharge
-        crop_calendar: dictionary of when crops can receive water
-        precip: dictionary of water from precip
-        crop_calendar_in_lieu: dictionary of when crops can receive water for in-lieu
-        use_in_lieu: boolean to use in-lieu sites
-        use_ofr: boolean to use on-farm-recharge sites
-        rma_sort: boolean to pass through if il-lieu sites need to be sorted by RMA
-        transfer_limits: dictionary of transfer limits for each district
+        site_list: every canal, basin and farm, already in processing order.
+            **Mutated**: the sites accumulate the year's results.
+        bottleneck_list: every bottleneck in the system. **Mutated**.
+        wafr: volume available (acre-feet) per day, keyed by WAFR source name.
+            **Mutated**: drawn down to zero as the year is allocated.
+        crop_calendar: accepted application rate (feet per day) for on-farm
+            recharge, indexed as `[crop][soil_type][day]`.
+        precip: daily precipitation depth (decimal-feet) for the water year,
+            keyed by precipitation grid identifier. `None` skips precipitation.
+        crop_calendar_in_lieu: accepted application rate (feet per day) for
+            in-lieu recharge, indexed as `[crop][region_number][day]`.
+        use_in_lieu: include in-lieu recharge.
+        use_ofr: include on-farm recharge.
+        rma_sort: order in-lieu sites by RMA rank first.
+        transfer_limits: yearly transfer budget (acre-feet) per district, from
+            `transfers.calc_transfer_limits`. **Mutated**: drawn down as
+            transfers are made. `None` disables transfer limiting.
 
-    Returns: dictionary of the modified sites, wafr, bottlenecks and transfer_limits
+    Returns:
+        The year's results, holding the modified `sites`, `wafr`, `bottlenecks`
+        and `transfer_limits`.
     """
-
     if transfer_limits is None:
         transfer_limits = {}
 
@@ -204,26 +233,40 @@ def start_analysis(
     rma_sort=True,
     transfer_goals=None,
 ):
-    """
-    Runs analysis for multiple years
+    """Run GRAT across a span of water years.
+
+    Each year is run against a deep copy of the inputs, so the sites, WAFR and
+    bottlenecks start every year in their original state and the years stay
+    independent of one another. The copies are discarded once the year is done.
 
     Args:
-        raw_sites: list of canals, basins and farm objects that are in sequenced order
-        raw_wafr: input dictionary of the water available for recharge
-        raw_bottlenecks: bottleneck object
-        crop_calendar: dictionary of the times of the year that determine when crops can accept water
-        precip: dictionary of water from precipitation
-        years: lists of years to run analysis
-        crop_calendar_in_lieu: dictionary of when crops can receive water for in-lieu
-        output_folder: folder to save results
-        selected_reports: list of reports to generate
-        use_in_lieu: boolean to use in-lieu sites
-        use_ofr: boolean to use on-farm-recharge sites
-        rma_sort: boolean to pass through to enable in-lieu sites to be sorted by RMA
-        transfer_goals: dictionary of transfer goals for each district or sustainability zone
+        raw_sites: every canal, basin and farm, in processing order. Copied per
+            year, so this list is not modified.
+        raw_wafr: volume available (acre-feet) per day, keyed by WAFR source
+            name, for each year — indexed as `[year][source][day]`.
+        raw_bottlenecks: every bottleneck in the system. Copied per year.
+        crop_calendar: accepted application rate (feet per day) for on-farm
+            recharge, indexed as `[crop][soil_type][day]`.
+        precip: daily precipitation depth (decimal-feet) for each year, indexed
+            as `[year][precip_grid][day]`. `None` skips precipitation.
+        years: water years to run. Defaults to 2001-2099.
+        crop_calendar_in_lieu: accepted application rate (feet per day) for
+            in-lieu recharge, indexed as `[crop][region_number][day]`.
+        output_folder: folder to write reports into. Not yet used — the
+            reporting layer has not been ported.
+        selected_reports: reports to generate. Not yet used — the reporting
+            layer has not been ported.
+        use_in_lieu: include in-lieu recharge.
+        use_ofr: include on-farm recharge.
+        rma_sort: order in-lieu sites by RMA rank first.
+        transfer_goals: transfer goal per district or sustainability zone, used
+            to derive each year's transfer budgets. See
+            `transfers.calc_transfer_limits`.
 
-    Returns: dictionary of yearly results with year as key
-
+    Note:
+        Returns nothing at present. Each year's results are computed and then
+        discarded, because the reporting layer that consumed them has not been
+        ported yet. Call `process_year` directly to get a year's results back.
     """
     if transfer_goals is None:
         transfer_goals = {}
