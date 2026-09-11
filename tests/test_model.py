@@ -343,12 +343,12 @@ class TestMockCanal:
 
         # loop through the days
         for i in range(0, 7):
-            sites.fill_canals(self.canal_list, i, self.wafr)
-            sites.canals_update_daily_values(self.canal_list, i)
+            engine.fill_canals(self.canal_list, i, self.wafr)
+            engine.canals_update_daily_values(self.canal_list, i)
 
         # use canal again
-        sites.fill_canals(self.canal_list, 7, self.wafr)
-        sites.canals_update_daily_values(self.canal_list, 7)
+        engine.fill_canals(self.canal_list, 7, self.wafr)
+        engine.canals_update_daily_values(self.canal_list, 7)
 
         assert list(self.c.used_volume)[0:8] == [
             178.4,
@@ -404,8 +404,8 @@ class TestMockCanalProportionalFill:
 
         # loop through the days
         for i in range(0, 7):
-            sites.fill_canals(self.canal_list, i, self.wafr)
-            sites.canals_update_daily_values(self.canal_list, i)
+            engine.fill_canals(self.canal_list, i, self.wafr)
+            engine.canals_update_daily_values(self.canal_list, i)
 
     def test_use_canal_wafr(self):
 
@@ -463,8 +463,8 @@ class TestMockCanalProportional:
 
         # loop through the days
         for i in range(0, 2):
-            sites.fill_canals(self.canal_list, i, self.wafr)
-            sites.canals_update_daily_values(self.canal_list, i)
+            engine.fill_canals(self.canal_list, i, self.wafr)
+            engine.canals_update_daily_values(self.canal_list, i)
 
     def test_use_canal_day1(self):
 
@@ -528,8 +528,8 @@ class TestMockCanalProportionalWafrOrder:
 
         # loop through the days
         for i in range(0, 2):
-            sites.fill_canals(self.canal_list, i, self.wafr)
-            sites.canals_update_daily_values(self.canal_list, i)
+            engine.fill_canals(self.canal_list, i, self.wafr)
+            engine.canals_update_daily_values(self.canal_list, i)
 
     def test_use_canal_day1(self):
 
