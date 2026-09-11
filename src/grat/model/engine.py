@@ -12,19 +12,250 @@ sources for whatever is left.
 
 import logging
 import pickle
+from time import time
 
-from grat.model.basins import basins_update_daily_values, fill_basins
-from grat.model.canals import canals_update_daily_values, fill_canals
 from grat.model.constants import DEFAULT_YEARS
-from grat.model.farms import use_farms
 from grat.model.sorters import group_sites_by_recharge_type
 from grat.model.transfers import calc_transfer_limits
-from grat.model.utils import check_wafr_availability, timer_func
 
 logger = logging.getLogger(__name__)
 
 # TODO - these are hard-code to remove need for config.py but need to be moved OSGRAT
 transfer_supply_sources = {}
+
+
+def timer_func(func):
+    """Log how long the decorated function took to run.
+
+    Args:
+        func: the function to time.
+
+    Returns:
+        The wrapped function, which logs its runtime at INFO level once it
+        returns and then passes the result through unchanged.
+    """
+
+    def wrap_func(*args, **kwargs):
+        t1 = time()
+        result = func(*args, **kwargs)
+        t2 = time()
+        logger.info("Function %r executed in %.4fs", func.__name__, t2 - t1)
+        return result
+
+    return wrap_func
+
+
+def fill_basins(
+    basin_list: list,
+    day: int,
+    wafr: dict,
+    bottleneck_list: list,
+    secondary_wafr: bool = False,
+    transfer_limits: dict | None = None,
+):
+    """Apply water to every basin in turn.
+
+    Basins are filled in list order, so earlier basins get first call on the
+    available water. See `Basin.use_basin` for how each one is filled.
+
+    Args:
+        basin_list: basins to fill, in processing order.
+        day: zero-indexed day of the water year.
+        wafr: volume still available (acre-feet) per day, keyed by WAFR source
+            name. **Mutated**: water applied is subtracted from it.
+        bottleneck_list: every bottleneck in the system. **Mutated**.
+        secondary_wafr: draw from secondary (out-of-district) sources instead of
+            primary (in-district) ones.
+        transfer_limits: remaining yearly transfer budget (acre-feet) per
+            district. **Mutated**. `None` disables transfer limiting.
+    """
+    for b in basin_list:
+        b.use_basin(
+            day,
+            wafr,
+            bottleneck_list,
+            secondary_wafr=secondary_wafr,
+            transfer_limits=transfer_limits,
+        )
+
+    return
+
+
+def basins_update_daily_values(basin_list: list, day: int):
+    """Drain a day's percolation from every basin into groundwater recharge.
+
+    Call once per day after the basins have been filled. See
+    `Basin.update_daily_values`.
+
+    Args:
+        basin_list: basins to drain.
+        day: zero-indexed day of the water year.
+    """
+    for b in basin_list:
+        b.update_daily_values(day)  # update daily values
+    return
+
+
+def proportionally_fill(
+    day: int,
+    canal_list: list,
+    wafr: dict,
+    selected_wafr: str,
+    secondary_wafr: bool = False,
+):
+    """Share one WAFR source's water across the canals it can reach.
+
+    Unlike basins and farms, which are filled in priority order until the water
+    runs out, canals are filled together: each one receives a share of the source's
+    volume in proportion to how much headroom it has. If the source has enough
+    water for everyone, every canal fills.
+
+    Args:
+        day: zero-indexed day of the water year.
+        canal_list: canals to consider. Those the source cannot reach are skipped.
+        wafr: volume still available (acre-feet) per day, keyed by WAFR source
+            name. **Mutated**: water applied is subtracted from it.
+        selected_wafr: name of the WAFR source being shared out.
+        secondary_wafr: match canals on their secondary (out-of-district) sources
+            instead of their primary (in-district) ones.
+    """
+    volume_available_from_wafr = wafr[selected_wafr][day]  # volume available from this WAFR source
+
+    if volume_available_from_wafr > 0:
+        if secondary_wafr:
+            # select the canals that are supplied by the secondary WAFR source
+            compatible_canals = [c for c in canal_list if selected_wafr in c.wafr_sources_secondary]
+        else:
+            # select the canals that are supplied by the selected WAFR source
+            compatible_canals = [c for c in canal_list if selected_wafr in c.wafr_sources_primary]
+
+        # sum of the volume available for the list of compatible canals that can receive water from this source
+        sum_canal_volume_available = sum([c.get_canal_volume_available(day) for c in compatible_canals])
+
+        # proportionally fill canals using fraction of volume available at site divided by the sum all volume available.
+        if sum_canal_volume_available > 0:
+            for c in compatible_canals:
+                proportional_volume = (
+                    c.get_canal_volume_available(day) / sum_canal_volume_available * volume_available_from_wafr
+                )
+                fill_volume = min(c.get_canal_volume_available(day), proportional_volume)
+                c.use_canal(day, wafr, selected_wafr, usable_volume_from_source=fill_volume)
+
+    return
+
+
+def fill_canals(canal_list: list, day: int, wafr: dict, secondary_wafr: bool = False):
+    """Fill the canals from every WAFR source that has water.
+
+    Sources are worked through largest first, so the most plentiful source is
+    shared out before the scarcer ones. Each is distributed by
+    `proportionally_fill`.
+
+    Args:
+        canal_list: canals to fill.
+        day: zero-indexed day of the water year.
+        wafr: volume still available (acre-feet) per day, keyed by WAFR source
+            name. **Mutated**: water applied is subtracted from it.
+        secondary_wafr: match canals on their secondary (out-of-district) sources
+            instead of their primary (in-district) ones.
+    """
+    wafr_order = sort_wafr_source_by_volume(wafr, day)  # sort WAFR sources by volume currently available
+
+    for wafr_source in wafr_order:
+        proportionally_fill(day, canal_list, wafr, wafr_source, secondary_wafr=secondary_wafr)
+
+    return
+
+
+def canals_update_daily_values(canal_list: list, day: int):
+    """Drain a day's percolation from every canal into groundwater recharge.
+
+    Call once per day after the canals have been filled. See
+    `Basin.update_daily_values`, which canals inherit.
+
+    Args:
+        canal_list: canals to drain.
+        day: zero-indexed day of the water year.
+    """
+    for c in canal_list:
+        c.update_daily_values(day)  # update daily values
+    return
+
+
+def use_farms(
+    site_list: list,
+    day: int,
+    wafr: dict,
+    bottleneck_list: list,
+    crop_calendar: dict,
+    in_lieu: bool = False,
+    secondary_wafr: bool = False,
+    transfer_limits: dict | None = None,
+):
+    """Apply water to every field in turn.
+
+    Fields are served in list order, so earlier fields get first call on the
+    available water. See `Farm.use_site` for how each one is filled.
+
+    Args:
+        site_list: fields to water, in processing order. Callers pass either the
+            on-farm sites or the in-lieu sites, matched to `in_lieu`.
+        day: zero-indexed day of the water year.
+        wafr: volume still available (acre-feet) per day, keyed by WAFR source
+            name. **Mutated**: water applied is subtracted from it.
+        bottleneck_list: every bottleneck in the system. **Mutated**.
+        crop_calendar: accepted application rate (feet per day) by crop. Must match
+            `in_lieu` — see `Farm.get_site_volume`.
+        in_lieu: apply as in-lieu recharge rather than on-farm.
+        secondary_wafr: draw from secondary (out-of-district) sources instead of
+            primary (in-district) ones.
+        transfer_limits: remaining yearly transfer budget (acre-feet) per district.
+            **Mutated**. `None` disables transfer limiting.
+    """
+    for s in site_list:
+        s.use_site(
+            day,
+            wafr,
+            bottleneck_list,
+            crop_calendar,
+            in_lieu=in_lieu,
+            secondary_wafr=secondary_wafr,
+            transfer_limits=transfer_limits,
+        )
+    return
+
+
+def sort_wafr_source_by_volume(wafr: dict, day: int):
+    """Rank the WAFR sources that have a non-zero volume on a day, largest first.
+
+    Args:
+        wafr: volume available (acre-feet) per day, keyed by WAFR source name.
+        day: zero-indexed day of the water year.
+
+    Returns:
+        Source names in descending order of volume. Sources sitting at exactly
+        zero that day are omitted; the test is for non-zero, so a negative
+        volume is kept and sorts last.
+    """
+    non_zero_sources = [source for source in wafr if wafr[source][day] != 0]
+    return sorted(non_zero_sources, key=lambda x: wafr[x][day], reverse=True)
+
+
+def check_wafr_availability(wafr, day):
+    """Report whether any WAFR source has water left on a day.
+
+    Used to skip the remaining allocation work once the day's water is spent.
+
+    Args:
+        wafr: volume available (acre-feet) per day, keyed by WAFR source name.
+        day: zero-indexed day of the water year.
+
+    Returns:
+        `True` if any source has water that day, `False` otherwise.
+    """
+    # get the day's volume by looping over the wafr dictionary and summing the total
+    total_volume = sum([v[day] for k, v in wafr.items()])
+    return total_volume > 0
 
 
 def use_sites(
