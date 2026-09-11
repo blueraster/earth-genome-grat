@@ -13,10 +13,8 @@ sources for whatever is left.
 import logging
 import pickle
 
-from grat.model.basins import basins_update_daily_values, fill_basins
-from grat.model.canals import canals_update_daily_values, fill_canals
 from grat.model.constants import DEFAULT_YEARS
-from grat.model.farms import use_farms
+from grat.model.sites import basins_update_daily_values, canals_update_daily_values, fill_basins, fill_canals, use_farms
 from grat.model.sorters import group_sites_by_recharge_type
 from grat.model.transfers import calc_transfer_limits
 from grat.model.utils import check_wafr_availability, timer_func

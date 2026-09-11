@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from grat.model import basins, bottlenecks, canals, constants, engine, farms, sites, sorters, utils
+from grat.model import bottlenecks, constants, engine, sites, sorters, utils
 from grat.model.transfers import calc_transfer_limits
 
 
@@ -48,7 +48,7 @@ class TestBaseSite:
 
 class TestBasin:
     def setup_method(self) -> None:
-        self.b = basins.Basin(
+        self.b = sites.Basin(
             grat_id="unittest",
             crop="Perc Basin",
             acres=12.5,
@@ -242,7 +242,7 @@ class TestBottleneck:
 class TestCanalObject:
     def setup_method(self) -> None:
 
-        self.c = canals.Canal(
+        self.c = sites.Canal(
             grat_id="Example 1",
             max_capacity=10000,
             perc_rate=600,
@@ -326,7 +326,7 @@ class TestCanalObject:
 
 class TestMockCanal:
     def setup_method(self) -> None:
-        self.c = canals.Canal(
+        self.c = sites.Canal(
             grat_id="unit test canal",
             wafr_sources_primary=["source_A", "source_B"],
             max_capacity=10000,
@@ -343,12 +343,12 @@ class TestMockCanal:
 
         # loop through the days
         for i in range(0, 7):
-            canals.fill_canals(self.canal_list, i, self.wafr)
-            canals.canals_update_daily_values(self.canal_list, i)
+            sites.fill_canals(self.canal_list, i, self.wafr)
+            sites.canals_update_daily_values(self.canal_list, i)
 
         # use canal again
-        canals.fill_canals(self.canal_list, 7, self.wafr)
-        canals.canals_update_daily_values(self.canal_list, 7)
+        sites.fill_canals(self.canal_list, 7, self.wafr)
+        sites.canals_update_daily_values(self.canal_list, 7)
 
         assert list(self.c.used_volume)[0:8] == [
             178.4,
@@ -374,21 +374,21 @@ class TestMockCanal:
 
 class TestMockCanalProportionalFill:
     def setup_method(self) -> None:
-        self.A = canals.Canal(
+        self.A = sites.Canal(
             grat_id="canal A",
             wafr_sources_primary=["Blue Lake"],
             max_capacity=1000,
             perc_rate=600,
         )
 
-        self.B = canals.Canal(
+        self.B = sites.Canal(
             grat_id="canal B",
             wafr_sources_primary=["Blue Lake", "Green Lake"],
             max_capacity=800,
             perc_rate=200,
         )
 
-        self.C = canals.Canal(
+        self.C = sites.Canal(
             grat_id="canal C",
             wafr_sources_primary=["Blue Lake", "Green Lake"],
             max_capacity=1500,
@@ -404,8 +404,8 @@ class TestMockCanalProportionalFill:
 
         # loop through the days
         for i in range(0, 7):
-            canals.fill_canals(self.canal_list, i, self.wafr)
-            canals.canals_update_daily_values(self.canal_list, i)
+            sites.fill_canals(self.canal_list, i, self.wafr)
+            sites.canals_update_daily_values(self.canal_list, i)
 
     def test_use_canal_wafr(self):
 
@@ -435,19 +435,19 @@ class TestMockCanalProportionalFill:
 
 class TestMockCanalProportional:
     def setup_method(self) -> None:
-        self.A = canals.Canal(
+        self.A = sites.Canal(
             grat_id="canal A",
             wafr_sources_primary=["Blue Lake"],
             max_capacity=10,
             perc_rate=5,
         )
-        self.B = canals.Canal(
+        self.B = sites.Canal(
             grat_id="canal B",
             wafr_sources_primary=["Blue Lake", "Red Lake"],
             max_capacity=10,
             perc_rate=5,
         )
-        self.C = canals.Canal(
+        self.C = sites.Canal(
             grat_id="canal C",
             wafr_sources_primary=["Red Lake"],
             max_capacity=10,
@@ -463,8 +463,8 @@ class TestMockCanalProportional:
 
         # loop through the days
         for i in range(0, 2):
-            canals.fill_canals(self.canal_list, i, self.wafr)
-            canals.canals_update_daily_values(self.canal_list, i)
+            sites.fill_canals(self.canal_list, i, self.wafr)
+            sites.canals_update_daily_values(self.canal_list, i)
 
     def test_use_canal_day1(self):
 
@@ -500,19 +500,19 @@ class TestMockCanalProportional:
 
 class TestMockCanalProportionalWafrOrder:
     def setup_method(self) -> None:
-        self.A = canals.Canal(
+        self.A = sites.Canal(
             grat_id="canal A",
             wafr_sources_primary=["Blue Lake"],
             max_capacity=10,
             perc_rate=5,
         )
-        self.B = canals.Canal(
+        self.B = sites.Canal(
             grat_id="canal B",
             wafr_sources_primary=["Blue Lake", "Red Lake"],
             max_capacity=10,
             perc_rate=5,
         )
-        self.C = canals.Canal(
+        self.C = sites.Canal(
             grat_id="canal C",
             wafr_sources_primary=["Red Lake"],
             max_capacity=10,
@@ -528,8 +528,8 @@ class TestMockCanalProportionalWafrOrder:
 
         # loop through the days
         for i in range(0, 2):
-            canals.fill_canals(self.canal_list, i, self.wafr)
-            canals.canals_update_daily_values(self.canal_list, i)
+            sites.fill_canals(self.canal_list, i, self.wafr)
+            sites.canals_update_daily_values(self.canal_list, i)
 
     def test_use_canal_day1(self):
 
@@ -553,7 +553,7 @@ class TestMockCanalProportionalWafrOrder:
 
 class TestOFR:
     def setup_method(self) -> None:
-        self.ofr = farms.Farm(
+        self.ofr = sites.Farm(
             grat_id="Unittest",
             crop="Corn",
             acres=10.2,
@@ -641,14 +641,14 @@ class TestOFR:
 
 class TestModelMainRun:
     def setup_method(self) -> None:
-        self.canal1 = canals.Canal(
+        self.canal1 = sites.Canal(
             grat_id="test",
             wafr_sources_primary=["A", "B"],
             max_capacity=10000,
             perc_rate=600,
             recharge_type="Canal",
         )
-        self.site1 = farms.Farm(
+        self.site1 = sites.Farm(
             grat_id=299,
             crop="Corn",
             acres=12.5,
@@ -658,7 +658,7 @@ class TestModelMainRun:
             bottleneck_ids=[2],
             wafr_sources_primary=["B"],
         )
-        self.site2 = farms.Farm(
+        self.site2 = sites.Farm(
             grat_id=9,
             crop="Wheat",
             acres=2.5,
@@ -668,7 +668,7 @@ class TestModelMainRun:
             bottleneck_ids=[2],
             wafr_sources_primary=["A"],
         )
-        self.site3 = basins.Basin(
+        self.site3 = sites.Basin(
             grat_id=33,
             acres=2.5,
             recharge_type="Basin",
@@ -745,7 +745,7 @@ class TestModelMainRun:
 
 class TestModelMainRunMultiYear:
     def setup_method(self) -> None:
-        self.canal1 = canals.Canal(
+        self.canal1 = sites.Canal(
             grat_id="test",
             wafr_sources=["A", "B"],
             max_capacity=10000,
@@ -753,7 +753,7 @@ class TestModelMainRunMultiYear:
             recharge_type="Canal",
         )
 
-        self.site1 = farms.Farm(
+        self.site1 = sites.Farm(
             grat_id=299,
             crop="Corn",
             acres=12.5,
@@ -763,7 +763,7 @@ class TestModelMainRunMultiYear:
             bottleneck_ids=2,
             wafr_sources=["B"],
         )
-        self.site2 = farms.Farm(
+        self.site2 = sites.Farm(
             grat_id=9,
             crop="Wheat",
             acres=2.5,
@@ -773,7 +773,7 @@ class TestModelMainRunMultiYear:
             bottleneck_ids=2,
             wafr_sources=["A"],
         )
-        self.site3 = basins.Basin(
+        self.site3 = sites.Basin(
             grat_id=33,
             acres=2.5,
             recharge_type="Basin",
@@ -978,7 +978,7 @@ class TestSortersInLieu:
 
 class TestIL:
     def setup_method(self) -> None:
-        self.il = farms.Farm(
+        self.il = sites.Farm(
             grat_id="Unittest",
             crop="Corn",
             acres=10.2,
@@ -1150,14 +1150,14 @@ class TestGetCompatibleCrops:
 
 class TestModelMainRunSecondaryWafr:
     def setup_method(self) -> None:
-        self.canal1 = canals.Canal(
+        self.canal1 = sites.Canal(
             grat_id="test",
             wafr_sources_primary=["A", "B"],
             max_capacity=10000,
             perc_rate=600,
             recharge_type="Canal",
         )
-        self.site1 = farms.Farm(
+        self.site1 = sites.Farm(
             grat_id=299,
             crop="Corn",
             acres=12.5,
@@ -1168,7 +1168,7 @@ class TestModelMainRunSecondaryWafr:
             wafr_sources_primary=["B"],
             wafr_sources_secondary=["A"],
         )
-        self.site2 = farms.Farm(
+        self.site2 = sites.Farm(
             grat_id=9,
             crop="Wheat",
             acres=2.5,
@@ -1179,7 +1179,7 @@ class TestModelMainRunSecondaryWafr:
             wafr_sources_primary=["A"],
             wafr_sources_secondary=["B"],
         )
-        self.site3 = basins.Basin(
+        self.site3 = sites.Basin(
             grat_id=33,
             acres=2.5,
             recharge_type="Basin",
@@ -1284,14 +1284,14 @@ class TestTurnoutLimitConversion:
     def test_cfs_to_acre_feet_per_day_with_valid_input(self):
         cfs_rate = 20
         expected_output = 39.66
-        assert farms.turnout_limit_conversion(cfs_rate) == pytest.approx(expected_output, abs=0.005)
+        assert sites.turnout_limit_conversion(cfs_rate) == pytest.approx(expected_output, abs=0.005)
 
 
 class TestDailyArrayLength:
     """Every daily array is sized for a leap year so no day index can overflow."""
 
     def test_site_arrays_cover_a_leap_year(self):
-        site = farms.Farm(grat_id="f", soil_type="Good", cfs_limit=5, crop="Corn", acres=1)
+        site = sites.Farm(grat_id="f", soil_type="Good", cfs_limit=5, crop="Corn", acres=1)
         for attr in (
             "used_volume",
             "daily_recharge_volumes",
@@ -1326,7 +1326,7 @@ class TestSortRuleValidation:
 class TestUseSiteMissingWafrSource:
     def test_source_absent_from_wafr_is_treated_as_empty(self):
         """A site naming a source the WAFR dictionary lacks takes no water, and does not raise."""
-        site = farms.Farm(
+        site = sites.Farm(
             grat_id="f",
             soil_type="Good",
             cfs_limit=5,
