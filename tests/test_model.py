@@ -3,13 +3,13 @@ import logging
 
 import pytest
 
-from grat.model import base_site, basins, bottlenecks, canals, constants, engine, farms, sorters, utils
+from grat.model import basins, bottlenecks, canals, constants, engine, farms, sites, sorters, utils
 from grat.model.transfers import calc_transfer_limits
 
 
 class TestBaseSite:
     def setup_method(self) -> None:
-        self.bs = base_site.BaseSite(grat_id=299, crop="Corn", acres=12.5, other="test")
+        self.bs = sites.BaseSite(grat_id=299, crop="Corn", acres=12.5, other="test")
 
     def test_set_daily_recharge(self):
 

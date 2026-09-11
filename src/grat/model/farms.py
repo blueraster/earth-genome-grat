@@ -5,8 +5,8 @@ import math
 import numpy as np
 
 from . import bottlenecks
-from .base_site import BaseSite
 from .constants import CFS_TO_ACRE_FEET_PER_DAY, DAYS_PER_WATER_YEAR, DEFAULT_CFS_LIMIT
+from .sites import BaseSite
 
 
 def turnout_limit_conversion(cfs_rate):

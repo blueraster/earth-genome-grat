@@ -3,7 +3,7 @@
 import math
 
 from . import bottlenecks
-from .base_site import BaseSite
+from .sites import BaseSite
 
 
 class Basin(BaseSite):
