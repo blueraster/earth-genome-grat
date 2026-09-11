@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from grat.model import base_site, basins, bottlenecks, canals, constants, farms, grat, sorters, utils
+from grat.model import base_site, basins, bottlenecks, canals, constants, engine, farms, sorters, utils
 from grat.model.transfers import calc_transfer_limits
 
 
@@ -704,7 +704,7 @@ class TestModelMainRun:
         }
 
     def test_run_grat_wafr(self):
-        r = grat.process_year(
+        r = engine.process_year(
             self.site_list,
             self.bottleneck_list,
             self.wafr,
@@ -718,7 +718,7 @@ class TestModelMainRun:
         }
 
     def test_run_grat_canals(self):
-        r = grat.process_year(
+        r = engine.process_year(
             self.site_list,
             self.bottleneck_list,
             self.wafr,
@@ -729,7 +729,7 @@ class TestModelMainRun:
         assert sum(r["sites"][0].daily_recharge_volumes) == 1800.0
 
     def test_run_grat_sites(self):
-        r = grat.process_year(
+        r = engine.process_year(
             self.site_list,
             self.bottleneck_list,
             self.wafr,
@@ -806,7 +806,7 @@ class TestModelMainRunMultiYear:
         sites2 = copy.deepcopy(self.site_list)
         bottleneck_list2 = copy.deepcopy(self.bottleneck_list)
 
-        year_1 = grat.process_year(
+        year_1 = engine.process_year(
             self.site_list,
             self.bottleneck_list,
             self.wafr,
@@ -814,7 +814,7 @@ class TestModelMainRunMultiYear:
             precip=None,
         )
 
-        year_2 = grat.process_year(sites2, bottleneck_list2, self.wafr2, self.crop_calendar, precip=None)
+        year_2 = engine.process_year(sites2, bottleneck_list2, self.wafr2, self.crop_calendar, precip=None)
 
         # years should not be equal
         assert year_1["sites"] != year_2["sites"]
@@ -1214,7 +1214,7 @@ class TestModelMainRunSecondaryWafr:
         }
 
     def test_run_grat_wafr(self):
-        r = grat.process_year(
+        r = engine.process_year(
             self.site_list,
             self.bottleneck_list,
             self.wafr,
@@ -1228,7 +1228,7 @@ class TestModelMainRunSecondaryWafr:
         }
 
     def test_run_grat_canals(self):
-        r = grat.process_year(
+        r = engine.process_year(
             self.site_list,
             self.bottleneck_list,
             self.wafr,
@@ -1239,7 +1239,7 @@ class TestModelMainRunSecondaryWafr:
         assert sum(r["sites"][0].daily_recharge_volumes) == 1800.0
 
     def test_run_grat_sites(self):
-        r = grat.process_year(
+        r = engine.process_year(
             self.site_list,
             self.bottleneck_list,
             self.wafr,
