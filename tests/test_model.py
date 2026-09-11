@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from grat.model import bottlenecks, constants, engine, sites, sorters, utils
+from grat.model import bottlenecks, constants, engine, sites, sorters
 from grat.model.transfers import calc_transfer_limits
 
 
@@ -1101,10 +1101,10 @@ class TestWafrSortOrder:
         self.wafr = {"SourceB": [50, 12000], "SourceA": [19, 300000]}
 
     def test_day0(self):
-        assert utils.sort_wafr_source_by_volume(self.wafr, 0) == ["SourceB", "SourceA"]
+        assert engine.sort_wafr_source_by_volume(self.wafr, 0) == ["SourceB", "SourceA"]
 
     def test_day1(self):
-        assert utils.sort_wafr_source_by_volume(self.wafr, 1) == ["SourceA", "SourceB"]
+        assert engine.sort_wafr_source_by_volume(self.wafr, 1) == ["SourceA", "SourceB"]
 
 
 class TestWafrAvailability:
@@ -1112,40 +1112,10 @@ class TestWafrAvailability:
         self.wafr = {"SourceB": [50, 12000, 0, 0], "SourceA": [19, 300000, 0, 1]}
 
     def test_day0(self):
-        assert utils.check_wafr_availability(self.wafr, 0)
+        assert engine.check_wafr_availability(self.wafr, 0)
 
     def test_day2(self):
-        assert not utils.check_wafr_availability(self.wafr, 2)
-
-
-class TestGetCompatibleCrops:
-    def setup_method(self) -> None:
-        self.ccc = {
-            "Corn": {"Poor": [0, 1.2, 3, 0], "Good": [3, 0, 1, 0]},
-            "Rice": {"Great": [0, 0, 1.2, 0], "Good": [0, 2.1, 0, 0]},
-        }
-
-    def test_day0(self):
-        assert utils.get_compatible_crops_soils_for_day(self.ccc, 0) == [("Corn", "Good")]
-
-    def test_day1(self):
-        assert utils.get_compatible_crops_soils_for_day(self.ccc, 1) == [
-            ("Corn", "Poor"),
-            ("Rice", "Good"),
-        ]
-
-    def test_day2(self):
-        assert utils.get_compatible_crops_soils_for_day(self.ccc, 2) == [
-            ("Corn", "Poor"),
-            ("Corn", "Good"),
-            ("Rice", "Great"),
-        ]
-
-    def test_day3(self):
-        assert utils.get_compatible_crops_soils_for_day(self.ccc, 3) == []
-
-    def test_none_sort_rule(self):
-        assert utils.get_compatible_crops_soils_for_day(None, 2) == []
+        assert not engine.check_wafr_availability(self.wafr, 2)
 
 
 class TestModelMainRunSecondaryWafr:
@@ -1271,9 +1241,9 @@ class TestSubsetSiteList:
         }
 
     def test_get_wafr_sources_with_water(self):
-        assert utils.sort_wafr_source_by_volume(self.wafr, 0) == ["CalDuck"]
-        assert utils.sort_wafr_source_by_volume(self.wafr, 1) == []
-        assert utils.sort_wafr_source_by_volume(self.wafr, 4) == [
+        assert engine.sort_wafr_source_by_volume(self.wafr, 0) == ["CalDuck"]
+        assert engine.sort_wafr_source_by_volume(self.wafr, 1) == []
+        assert engine.sort_wafr_source_by_volume(self.wafr, 4) == [
             "Calaveras",
             "Duck",
             "CalDuck",

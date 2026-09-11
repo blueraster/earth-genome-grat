@@ -12,16 +12,37 @@ sources for whatever is left.
 
 import logging
 import pickle
+from time import time
 
 from grat.model.constants import DEFAULT_YEARS
 from grat.model.sorters import group_sites_by_recharge_type
 from grat.model.transfers import calc_transfer_limits
-from grat.model.utils import check_wafr_availability, sort_wafr_source_by_volume, timer_func
 
 logger = logging.getLogger(__name__)
 
 # TODO - these are hard-code to remove need for config.py but need to be moved OSGRAT
 transfer_supply_sources = {}
+
+
+def timer_func(func):
+    """Log how long the decorated function took to run.
+
+    Args:
+        func: the function to time.
+
+    Returns:
+        The wrapped function, which logs its runtime at INFO level once it
+        returns and then passes the result through unchanged.
+    """
+
+    def wrap_func(*args, **kwargs):
+        t1 = time()
+        result = func(*args, **kwargs)
+        t2 = time()
+        logger.info("Function %r executed in %.4fs", func.__name__, t2 - t1)
+        return result
+
+    return wrap_func
 
 
 def fill_basins(
@@ -202,6 +223,39 @@ def use_farms(
             transfer_limits=transfer_limits,
         )
     return
+
+
+def sort_wafr_source_by_volume(wafr: dict, day: int):
+    """Rank the WAFR sources that have a non-zero volume on a day, largest first.
+
+    Args:
+        wafr: volume available (acre-feet) per day, keyed by WAFR source name.
+        day: zero-indexed day of the water year.
+
+    Returns:
+        Source names in descending order of volume. Sources sitting at exactly
+        zero that day are omitted; the test is for non-zero, so a negative
+        volume is kept and sorts last.
+    """
+    non_zero_sources = [source for source in wafr if wafr[source][day] != 0]
+    return sorted(non_zero_sources, key=lambda x: wafr[x][day], reverse=True)
+
+
+def check_wafr_availability(wafr, day):
+    """Report whether any WAFR source has water left on a day.
+
+    Used to skip the remaining allocation work once the day's water is spent.
+
+    Args:
+        wafr: volume available (acre-feet) per day, keyed by WAFR source name.
+        day: zero-indexed day of the water year.
+
+    Returns:
+        `True` if any source has water that day, `False` otherwise.
+    """
+    # get the day's volume by looping over the wafr dictionary and summing the total
+    total_volume = sum([v[day] for k, v in wafr.items()])
+    return total_volume > 0
 
 
 def use_sites(
