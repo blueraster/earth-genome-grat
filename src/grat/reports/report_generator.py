@@ -62,7 +62,7 @@ def annual_summary_recharge(daily_summary_recharge_df):
     basins at the end of the water year by getting the current capacity on the last day of the water year.
 
     Args:
-        daily_summary_recharge_df: dataframe output from the dailySummaryRecharge_concat() function
+        daily_summary_recharge_df: dataframe output from the daily_summary_recharge function
 
     Returns: pandas dataframe
 
@@ -138,10 +138,10 @@ def annual_summary_recharge_save(df, output_folder):
 
 
 def daily_summary_recharge_save(df, output_folder):
-    """Saves the dailySummaryRecharge combined dataframe to a csv file.
+    """Saves the daily_summary_recharge combined dataframe to a csv file.
 
     Args:
-        df: dataframe with all years of dailySummaryRecharge combined. Dataframe output from dailySummaryRecharge_concat
+        df: dataframe with all years of daily_summary_recharge combined.
         output_folder: path to the folder to save the output file
 
     Returns: path to csv file (03_Daily Summary Recharge.csv)
@@ -181,7 +181,7 @@ def daily_wafr_applied_by_site(site_volume_report_df, site_info_df):
     """Splits the daily used-volume array into one column per day of water year, joined to the site info.
 
     Args:
-        site_volume_report_df: dataframe with the site volume report values (from siteVolumeReport function())
+        site_volume_report_df: dataframe with the site volume report values (from site_volume_report function())
         site_info_df: dataframe with the site info values (from siteInfo function())
 
     Returns: dataframe with daily WAFR applied by site
@@ -249,7 +249,7 @@ def daily_recharge_by_site(site_volume_report_df, site_info_df):
     """Splits the daily recharge volume array into one column per day of water year, joined to the site info.
 
     Args:
-        site_volume_report_df: dataframe with the site volume report values (from siteVolumeReport function())
+        site_volume_report_df: dataframe with the site volume report values (from site_volume_report function())
         site_info_df: dataframe with the site info values (from siteInfo function())
 
     Returns: dataframe with daily recharge by site
@@ -317,7 +317,7 @@ def monthly_recharge_by_site_report(site_volume_report_df):
     """Aggregates the daily recharge volume arrays into monthly totals per site and recharge volume type.
 
     Args:
-        site_volume_report_df: dataframe with the site volume report values (from siteVolumeReport function())
+        site_volume_report_df: dataframe with the site volume report values (from site_volume_report function())
 
     Returns: dataframe with monthly recharge by site
 
@@ -1090,7 +1090,7 @@ def daily_recharge_by_gw_basin(site_volume_report_df, site_info_df):
     """Post-process the siteOfrUsageReport df.
 
     Args:
-        site_volume_report_df: dataframe with the site volume report values (from siteVolumeReport function())
+        site_volume_report_df: dataframe with the site volume report values (from site_volume_report function())
         site_info_df: dataframe with the site info
 
     Returns: transposed dataframe with daily recharge by GW basin
