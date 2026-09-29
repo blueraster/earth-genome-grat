@@ -5,7 +5,6 @@ import logging
 import os
 
 import pandas as pd
-from model.engine import timer_func
 from reports.report_generator import (
     acres_available_and_used,
     acres_available_and_used_save,
@@ -61,7 +60,6 @@ from reports.summary_operations import (
 logger = logging.getLogger(__name__)
 
 
-@timer_func
 def report_picker(
     report_ids,
     output_folder,
