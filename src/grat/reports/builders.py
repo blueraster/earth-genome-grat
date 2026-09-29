@@ -1,58 +1,14 @@
 """Generates output reports using pandas."""
 
-import datetime
 import logging
-import os
 import re
-import shutil
 
 import numpy as np
 import pandas as pd
-from reports.converters import is_leap_year, sum_array_by_month
+
+from grat.reports.converters import is_leap_year, sum_array_by_month
 
 logger = logging.getLogger(__name__)
-
-
-def construct_output_folder_name(path_to_folder: str):
-    """Creates a new unique folder using the current datetime to store the exported csv results.
-
-    Args:
-        path_to_folder: path to the output parent directory where the results folder will be created
-
-    Returns: path to the result folder that was just created
-    """
-    t = datetime.datetime.now().strftime("%Y%m%d%H%M%S")  # current timestamp
-    folder_name = os.path.join(path_to_folder, f"results_{t}")
-    if not os.path.exists(folder_name):
-        os.mkdir(folder_name)
-    return folder_name
-
-
-def zip_output_folder(result_folder_path, custom_name=None):
-    """Zips up the output folder as a zipfile.
-
-    Args:
-        result_folder_path: path to zip up
-        custom_name: optional custom name for the zip file
-
-    Returns: path to the output zip file
-    """
-    parent_dir = os.path.dirname(result_folder_path)
-    basename = os.path.basename(result_folder_path)
-
-    if custom_name:
-        basename = custom_name
-    output_zip = os.path.join(parent_dir, basename)
-    shutil.make_archive(output_zip, "zip", result_folder_path)
-    return output_zip + ".zip"
-
-    ########################################################################################
-    # Report 1
-    ########################################################################################
-
-    # ##############################################r########################################
-    # Report 2
-    # #######################################################################################
 
 
 def annual_summary_recharge(daily_summary_recharge_df):
@@ -115,41 +71,19 @@ def annual_summary_recharge(daily_summary_recharge_df):
     ]
 
 
-def annual_summary_recharge_save(df, output_folder):
-    """Saves the annualSummary dataframe to a csv file.
+def daily_summary_recharge_report(df):
+    """Selects the columns that report 03 publishes from the daily summary.
+
+    The end-of-year capacity columns are dropped here rather than in the writer, so
+    the frame this returns is exactly what lands in the csv.
 
     Args:
-        df: dataframe with annualSummaryRecharge values (generated from annualSummaryRecharge function())
-        output_folder: path to the folder to save the output file
+        df: dataframe from summary_operations.daily_summary_recharge, combined across
+            every water year
 
-    Returns: path to csv file (02_Annual Summary Recharge and WAFR.csv)
+    Returns: dataframe with the report 03 columns, in report order
     """
-    # create the output file name
-    out_file = os.path.join(output_folder, "02_Annual Summary Recharge and WAFR.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 3
-    ########################################################################################
-
-
-def daily_summary_recharge_save(df, output_folder):
-    """Saves the daily_summary_recharge combined dataframe to a csv file.
-
-    Args:
-        df: dataframe with all years of daily_summary_recharge combined.
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (03_Daily Summary Recharge.csv)
-
-    """
-    # don't need the "Canals Current Capacity" or "Basins Current Capacity" columns
-
-    df = df[
+    return df[
         [
             "Year",
             "Day",
@@ -163,18 +97,6 @@ def daily_summary_recharge_save(df, output_folder):
             "Precipitation (AF)",
         ]
     ]
-
-    # create the output file name
-    out_file = os.path.join(output_folder, "03_Daily Summary Recharge.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 4
-    ########################################################################################
 
 
 def daily_wafr_applied_by_site(site_volume_report_df, site_info_df):
@@ -223,28 +145,6 @@ def daily_wafr_applied_by_site(site_volume_report_df, site_info_df):
     return joined_transpose.rename(columns={"index": "gratID"})
 
 
-def daily_wafr_applied_by_site_save(df, output_folder):
-    """Saves the daily_wafr_applied_by_site dataframe to a csv file.
-
-    Args:
-        df: dataframe with daily_wafr_applied_by_site values (generated from daily_wafr_applied_by_site function())
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (04_Daily WAFR Applied by Site.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "04_Daily WAFR Applied by Site.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False)
-
-    return out_file
-
-    ########################################################################################
-    # Report 5
-    ########################################################################################
-
-
 def daily_recharge_by_site(site_volume_report_df, site_info_df):
     """Splits the daily recharge volume array into one column per day of water year, joined to the site info.
 
@@ -289,28 +189,6 @@ def daily_recharge_by_site(site_volume_report_df, site_info_df):
     joined = site_info_df.merge(d1_order, on="gratID", how="right").sort_values("sortIndex")
     joined_transpose = joined.set_index("gratID").transpose().reset_index()
     return joined_transpose.rename(columns={"index": "gratID"})
-
-
-def daily_recharge_by_site_save(df, output_folder):
-    """Saves the daily_recharge_by_site dataframe to a csv file.
-
-    Args:
-        df: dataframe with daily_recharge_by_site values (generated from daily_recharge_by_site function())
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (05_Daily Detailed Recharge Applied by Site.c)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "05_Daily Detailed Recharge Applied by Site.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False)
-
-    return out_file
-
-    ########################################################################################
-    # Report 6 & Report 7
-    ########################################################################################
 
 
 def monthly_recharge_by_site_report(site_volume_report_df):
@@ -370,25 +248,6 @@ def monthly_recharge_by_site_report(site_volume_report_df):
     il_monthly_numbers = il_site_volume_report_df[["Year", "gratID", "recharge_volume_type"] + month_columns]
 
     return pd.concat([monthly_numbers, il_monthly_numbers], axis=0)
-
-
-def monthly_recharge_by_site_report_append(df, output_folder):
-    """Saves the monthly_recharge_by_site_report dataframe to a csv file.
-
-    Args:
-        df: dataframe with monthly_recharge_by_site_report values
-            (generated from monthly_recharge_by_site_report function())
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (06_Monthly Recharge by Site.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "temp_Monthly Recharge by Site.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
 
 
 def monthly_recharge_by_site_report_post(df, site_info):
@@ -465,60 +324,26 @@ def monthly_recharge_by_site_report_post(df, site_info):
     return joined
 
 
-def monthly_recharge_by_site_report_save(df, output_folder):
-    """Saves the monthly_recharge_by_site_report dataframe to a csv file.
+def monthly_recharge_by_site_summary(df):
+    """Selects the columns that report 06 publishes from the pivoted monthly frame.
+
+    Report 07 publishes the same frame in full; report 06 keeps only the site
+    identifiers and the per-month value columns.
 
     Args:
-        df: dataframe monthly_recharge_by_site_report_post
-        output_folder: path to the folder to save the output file
+        df: dataframe from monthly_recharge_by_site_report_post
 
-    Returns: path to csv file (06_Monthly Recharge by Site.csv)
+    Returns: dataframe with gratID, rechargeType and the "Year N Month M" columns
     """
-    # get list of the df columns
-    columns = df.columns.tolist()
-
-    # loop through the existing columns and return the subset that match conditions below
     columns_to_keep = []
-    for c in columns:
+    for c in df.columns.tolist():
         if re.match(r"^Year \d+ Month \d{1,2}$", c):  # match the year and month columns
             columns_to_keep.append(c)
 
-        if c in [
-            "gratID",
-            "rechargeType",
-        ]:  # match the gratID identifier and rechargeType columns
+        if c in ("gratID", "rechargeType"):  # match the gratID identifier and rechargeType columns
             columns_to_keep.append(c)
 
-            # create the output file name
-    out_file = os.path.join(output_folder, "06_Monthly Recharge by Site.csv")
-
-    # save to csv
-    df[columns_to_keep].to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-
-def monthly_recharge_by_site_report_detailed_save(df, output_folder):
-    """Saves the monthly_recharge_by_site_report dataframe with site_info to a csv file.
-
-    Args:
-        df: dataframe with monthly_recharge_by_site_report values
-            (from monthly_recharge_by_site_report function() + site_info)
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (07_Monthly Detailed Recharge by Site.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "07_Monthly Detailed Recharge by Site.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False)
-
-    return out_file
-
-    ########################################################################################
-    # Report 8
-    ########################################################################################
+    return df[columns_to_keep]
 
 
 def daily_farm_recharge_report(site_ofr_usage_report_df, site_info_df):
@@ -574,28 +399,6 @@ def daily_farm_recharge_report(site_ofr_usage_report_df, site_info_df):
     return joined_transpose.rename(columns={"index": "Year and Day"})
 
 
-def daily_farm_recharge_report_save(df, output_folder):
-    """Saves the daily_farm_recharge_report dataframe to a csv file.
-
-    Args:
-        df: dataframe with daily_farm_recharge_report values (generated from daily_farm_recharge_report function)
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (08_Daily OFR by Crop and Soil Type.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "08_Daily OFR by Crop and Soil Type.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 9
-    ########################################################################################
-
-
 def yearly_aggregate_farm_recharge_report(site_ofr_usage_report_df, site_info_df):
     """Post-process the siteOfrUsageReport df to return values grouped by crop + soilType.
 
@@ -626,29 +429,6 @@ def yearly_aggregate_farm_recharge_report(site_ofr_usage_report_df, site_info_df
     return pivoted_df
 
 
-def yearly_aggregate_farm_recharge_report_save(df, output_folder):
-    """Saves the yearly_aggregate_farm_recharge_report dataframe to a csv file.
-
-    Args:
-        df: dataframe with yearly_aggregate_farm_recharge_report values
-            (from yearly_aggregate_farm_recharge_report function)
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (09_Annual OFR by Crop and Soil Type.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "09_Annual OFR by Crop and Soil Type.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 10
-    ########################################################################################
-
-
 def daily_wafr_report(year, wafr):
     """Report the unused wafr by source for every day.
 
@@ -674,28 +454,6 @@ def daily_wafr_report(year, wafr):
         # drop day 366 if not a leap year
         df = df.drop(df[df["Day"] == 366].index)
     return df
-
-
-def daily_wafr_report_save(df, output_folder):
-    """Saves the daily_wafr_report dataframe to a csv file.
-
-    Args:
-        df: dataframe with daily_wafr_report values (from daily_wafr_report function)
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (10_Daily Unused WAFR by Source.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "10_Daily Unused WAFR by Source.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 11
-    ########################################################################################
 
 
 def atoi(text):
@@ -754,29 +512,6 @@ def bottlenecks_capacity_limitations_report(year, bottleneck_list):
     return df_wide[columns]
 
 
-def bottlenecks_capacity_limitations_report_save(df, output_folder):
-    """Saves the bottlenecks_capacity_limitations_report dataframe to a csv file.
-
-    Args:
-        df: dataframe with bottlenecks_capacity_limitations_report values
-            (from bottlenecks_capacity_limitations_report function)
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (11_Annual Conveyance Bottleneck Count.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "11_Annual Conveyance Bottleneck Count.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 12
-    ########################################################################################
-
-
 def bottlenecks_daily_conveyance_limits_by_volume(year, bottleneck_list):
     """Construct dataframe with years as the rows and bottleneckIDs as the column names.
 
@@ -824,29 +559,6 @@ def bottlenecks_daily_conveyance_limits_by_volume(year, bottleneck_list):
     return d1t[columns]
 
 
-def bottlenecks_daily_conveyance_limits_by_volume_save(df, output_folder):
-    """Saves the bottlenecks_daily_conveyance_limits_by_volume dataframe to a csv file.
-
-    Args:
-        df: dataframe with bottlenecks_daily_conveyance_limits_by_volume values
-            (from bottlenecks_daily_conveyance_limits_by_volume function)
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (12_Daily Conveyance Limits by Volume.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "12_Daily Conveyance Limits by Volume.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 13
-    ########################################################################################
-
-
 def yearly_bottleneck_capacity_logger(year, bottleneck_list):
     """Yearly Bottleneck Capacity Logger (used as input for 14 post processing).
 
@@ -883,28 +595,6 @@ def yearly_bottleneck_capacity_logger(year, bottleneck_list):
 
     agg_dict = {f"{i}": join_non_empty for i in range(1, 367)}
     return df.groupby(["Year"]).agg(agg_dict).reset_index()
-
-
-def yearly_bottleneck_capacity_logger_save(df, output_folder):
-    """Saves the yearly_bottleneck_capacity_logger dataframe to a csv file.
-
-    Args:
-        df: dataframe with yearly_bottleneck_capacity_logger values (from yearly_bottleneck_capacity_logger function)
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (13_Daily Conveyance Bottleneck IDs.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "13_Daily Conveyance Bottleneck IDs.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # annualRechargeByGrouping (used as input for 15,16,17 post processing)
-    ########################################################################################
 
 
 def annual_recharge_by_grouping(year, sites):
@@ -949,29 +639,6 @@ def annual_recharge_by_grouping(year, sites):
     return None
 
 
-def annual_recharge_by_grouping_save(df, output_folder):
-    """Saves the annual_recharge_by_grouping dataframe to a csv file.
-
-    Args:
-        df: dataframe with annual_recharge_by_grouping values (generated from annual_recharge_by_grouping function)
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (18_Daily Recharge by GW Basin.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "annualRechargeByGrouping.csv")
-
-    if df is not None:
-        # save to csv
-        df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 15
-    ########################################################################################
-
-
 def annual_recharge_by_sw_and_gw(df_annual_recharge_by_grouping):
     """Group by WAFR and subbasin.
 
@@ -986,28 +653,6 @@ def annual_recharge_by_sw_and_gw(df_annual_recharge_by_grouping):
     g = df_annual_recharge_by_grouping.groupby(["Year", "subbasin", "wafrsource"])["value"].sum().reset_index()
 
     return g.pivot(index="Year", columns=["subbasin", "wafrsource"], values="value").reset_index()
-
-
-def annual_recharge_by_sw_and_gw_save(df, output_folder):
-    """Saves the annual_recharge_by_sw_and_gw dataframe to a csv file.
-
-    Args:
-        df: dataframe with annual_recharge_by_sw_and_gw values (generated from annual_recharge_by_sw_and_gw function)
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (15_Annual Recharge by SW Source and GW Basin.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "15_Annual Recharge by SW Source and GW Basin.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 16
-    ########################################################################################
 
 
 def annual_recharge_by_district_and_gw(df_annual_recharge_by_grouping):
@@ -1026,28 +671,6 @@ def annual_recharge_by_district_and_gw(df_annual_recharge_by_grouping):
     return g.pivot(index="Year", columns=["subbasin", "district"], values="value").reset_index()
 
 
-def annual_recharge_by_district_and_gw_save(df, output_folder):
-    """Saves the annual_recharge_by_district_and_gw dataframe to a csv file.
-
-    Args:
-        df: dataframe with annual_recharge_by_district_and_gw values
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (16_Annual District Recharge by GW Basin.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "16_Annual District Recharge by GW Basin.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 17
-    ########################################################################################
-
-
 def annual_recharge_by_district_and_wafr(df_annual_recharge_by_grouping):
     """Annual District Recharge by SW Source (wafr).
 
@@ -1062,28 +685,6 @@ def annual_recharge_by_district_and_wafr(df_annual_recharge_by_grouping):
     g = df_annual_recharge_by_grouping.groupby(["Year", "wafrsource", "district"])["value"].sum().reset_index()
 
     return g.pivot(index="Year", columns=["wafrsource", "district"], values="value").reset_index()
-
-
-def annual_recharge_by_district_and_wafr_save(df, output_folder):
-    """Saves the annual_recharge_by_district_and_wafr dataframe to a csv file.
-
-    Args:
-        df: dataframe with annual_recharge_by_district_and_wafr values
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (17_Annual District Recharge by SW Source.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "17_Annual District Recharge by SW Source.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 18
-    ########################################################################################
 
 
 def daily_recharge_by_gw_basin(site_volume_report_df, site_info_df):
@@ -1166,28 +767,6 @@ def daily_recharge_by_gw_basin(site_volume_report_df, site_info_df):
     return joined_transpose.rename(columns={"index": "Year and Day"})
 
 
-def daily_recharge_by_gw_basin_save(df, output_folder):
-    """Saves the dailyRechargeByGWBasin dataframe to a csv file.
-
-    Args:
-        df: dataframe with dailyRechargeByGWBasin values (generated from dailyRechargeByGWBasin function)
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (18_Daily Recharge by GW Basin.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "18_Daily Recharge by GW Basin.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Report 19
-    ########################################################################################
-
-
 def acres_available_and_used(year, site_list):
     """Calculates the acres available and used for different recharge types and other categories for a given year.
 
@@ -1239,28 +818,6 @@ def acres_available_and_used(year, site_list):
     return pd.DataFrame([data])
 
 
-def acres_available_and_used_save(df, output_folder):
-    """Saves the acres_available_and_used dataframe to a csv file.
-
-    Args:
-        df: dataframe with acres_available_and_used values
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (19_Acres Available and Used.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "19_Acres Available and Used.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ########################################################################################
-    # Experimental
-    ########################################################################################
-
-
 def yearly_wafr_applied_by_site(year, sites_list):
     """Report of the WAFR applied per site for each year.
 
@@ -1290,38 +847,15 @@ def yearly_wafr_applied_by_site(year, sites_list):
     return pd.DataFrame(data_rows, columns=["gratID", "Year", "usedVolume"])
 
 
-def yearly_wafr_applied_by_site_save(df, output_folder):
-    """Saves the yearly_wafr_applied_by_site dataframe to a csv file.
-
-    Args:
-        df: dataframe with yearly_wafr_applied_by_site values
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (20_Yearly WAFR Applied by Site.csv)
-    """
-    # create the output file name
-    out_file = os.path.join(output_folder, "temp_Yearly WAFR Applied by Site.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    ##################################################################################
-    # frontend table generation showing unused WAFR by source vs original WAFR
-    ########################################################################################
-
-
-def yearly_wafr_report(output_folder, year, wafr_dict, raw_wafr_dict):
+def yearly_wafr_report(year, wafr_dict, raw_wafr_dict):
     """Create a yearly WAFR report by source with unused and total WAFR.
 
     Args:
-        output_folder: path to save the report
         year: the current year iteration
         wafr_dict: dictionary of unused WAFR by source
         raw_wafr_dict: dictionary of total WAFR by source
 
-    Returns: report of unused and total WAFR by source as a csv file
+    Returns: dataframe of unused and total WAFR by source
 
     """
     # sum the wafr values (list) by source
@@ -1342,47 +876,23 @@ def yearly_wafr_report(output_folder, year, wafr_dict, raw_wafr_dict):
     df = df.rename(columns={"index": "Type"})
     df["Year"] = year
 
-    # save to a temp csv
-    # create the output file name
-    out_file = os.path.join(output_folder, "temp_unused_and_orig_wafr_by_source.csv")
-
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return
-
-    ##################################################################################
-    # 22 MLRP report - list of gratIDs that got converted to MLRP
-    ##################################################################################
+    return df
 
 
-def mlrp_report(output_folder, site_info):
+def mlrp_report(site_info_df):
     """Report the list of gratIDs that got converted to MLRP.
 
     Args:
-        output_folder: path to save the report
-        site_info: path to the siteInfo.csv file
+        site_info_df: dataframe of site attribution, from summary_operations.get_site_info
 
-    Returns: the list of gratIDs that got converted to MLRP as a csv file
+    Returns: dataframe of the gratIDs that got converted to MLRP
 
     """
-    # load the temp_siteInfo.csv file
-    df = pd.read_csv(site_info)
-
     # filter the dataframe to only include rows where the crop type is MLRP
-    df = df[df["crop"] == "MLRP"]
+    df = site_info_df[site_info_df["crop"] == "MLRP"]
 
     # keep only the gratID, district, agency and acres columns
-    df = df[["gratID", "district", "agency", "acres"]]
-
-    # save to a csv
-    df.to_csv(os.path.join(output_folder, "22_Fields Repurposed.csv"), index=False)
-
-    return
-
-    ##################################################################################
-    # 20 Daily Water Transfer by Sustainability Zone
-    ##################################################################################
+    return df[["gratID", "district", "agency", "acres"]]
 
 
 def daily_water_transfer_by_sustain_zone_report(year, site_list, transfer_list):
@@ -1433,72 +943,31 @@ def daily_water_transfer_by_sustain_zone_report(year, site_list, transfer_list):
     order_cols = ["Year", "Day"] + list(data.keys())
     return df[order_cols]
 
-    # save the dataframe to csv using the append method
 
-
-def daily_water_transfer_by_sustain_zone_report_save(df, output_folder):
-    """Saves the daily_water_transfer_by_sustain_zone_report dataframe to a csv file.
+def yearly_water_transfer_by_sustain_zone_report(daily_df):
+    """Rolls the daily water transfer report up to a yearly total per sustainability zone.
 
     Args:
-        df: dataframe with daily_water_transfer_by_sustain_zone_report values
-        output_folder: path to the folder to save the output file
+        daily_df: dataframe from daily_water_transfer_by_sustain_zone_report, combined
+            across every water year (report 20)
 
-    Returns: path to csv file (20_Daily Water Transfer by Sustainability Zone.csv)
+    Returns: dataframe of yearly totals, with the Day column dropped
     """
-    # create the output file name
-    out_file = os.path.join(output_folder, "20_Daily Water Transfer by Sustainability Zone.csv")
+    # group by year and district and sum up the volumes
+    yearly_df = daily_df.groupby(["Year"]).sum().reset_index()  # rollup to a yearly total
 
-    # save to csv
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-
-    return out_file
-
-    # roll up the daily water transfer by sustainability zone to a yearly report
+    # drop the day column
+    return yearly_df.drop(columns=["Day"])
 
 
-def yearly_water_transfer_by_sustain_zone_report_save(output_folder):
-    """Saves the daily_water_transfer_by_sustain_zone_report csv to a yearly csv file.
-
-    Args:
-        output_folder: path to the folder to save the output file
-
-    Returns: path to csv file (21_Yearly Water Transfer by Sustainability Zone.csv)
-    """
-    # load the daily water transfer by district csv file
-    try:
-        daily_df = pd.read_csv(os.path.join(output_folder, "20_Daily Water Transfer by Sustainability Zone.csv"))
-
-        # group by year and district and sum up the volumes
-        yearly_df = daily_df.groupby(["Year"]).sum().reset_index()  # rollup to a yearly total
-
-        # drop the day column
-        yearly_df.drop(columns=["Day"], inplace=True)
-
-        # save to a csv
-        out_file = os.path.join(output_folder, "21_Yearly Water Transfer by Sustainability Zone.csv")
-        yearly_df.to_csv(out_file, index=False)
-
-    except FileNotFoundError:
-        logger.info("The daily water transfer by sustainability zone report has not been generated yet")
-        return None
-
-    else:
-        return out_file
-
-        ##################################################################################
-        # Frontend table generation showing total WAFR by sustainability zone or district
-        ##################################################################################
-
-
-def total_recharge_by_sustainability_zone_report(year, site_list, output_folder):
+def total_recharge_by_sustainability_zone_report(year, site_list):
     """Report the total Recharge by sustainability zone.
 
     Args:
         year: current year
         site_list: list of sites
-        output_folder: path to save the report
 
-    Returns: total recharge by sustainability zone report as a csv file
+    Returns: dataframe of total recharge by sustainability zone
 
     """
     # initialize variables to store acre-feet of total WAFR applied as recharge
@@ -1542,23 +1011,18 @@ def total_recharge_by_sustainability_zone_report(year, site_list, output_folder)
 
     # rearrange the columns
     order_cols = ["Year", "sustainabilityZone", "acreFeet"]
-    df = df[order_cols]
 
-    # append to a temp csv file
-    out_file = os.path.join(output_folder, "temp_totalBySustainabilityZone.csv")
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-    return
+    return df[order_cols]
 
 
-def total_recharge_by_district_report(year, site_list, output_folder):
+def total_recharge_by_district_report(year, site_list):
     """Report the total Recharge by district.
 
     Args:
         year: current year
         site_list: list of sites
-        output_folder: path to save the report
 
-    Returns: total recharge by district report as a csv file
+    Returns: dataframe of total recharge by district
 
     """
     # initialize variables to store acre-feet of total WAFR applied as recharge
@@ -1601,9 +1065,5 @@ def total_recharge_by_district_report(year, site_list, output_folder):
 
     # rearrange the columns
     order_cols = ["Year", "district", "acreFeet"]
-    df = df[order_cols]
 
-    # append to a temp csv file
-    out_file = os.path.join(output_folder, "temp_totalByDistrict.csv")
-    df.to_csv(out_file, index=False, mode="a", header=not os.path.exists(out_file))
-    return
+    return df[order_cols]

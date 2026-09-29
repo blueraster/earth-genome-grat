@@ -5,56 +5,42 @@ import logging
 import os
 
 import pandas as pd
-from reports.report_generator import (
+
+from grat.reports.builders import (
     acres_available_and_used,
-    acres_available_and_used_save,
     annual_recharge_by_district_and_gw,
-    annual_recharge_by_district_and_gw_save,
     annual_recharge_by_district_and_wafr,
-    annual_recharge_by_district_and_wafr_save,
     annual_recharge_by_grouping,
-    annual_recharge_by_grouping_save,
     annual_recharge_by_sw_and_gw,
-    annual_recharge_by_sw_and_gw_save,
     annual_summary_recharge,
-    annual_summary_recharge_save,
     bottlenecks_capacity_limitations_report,
-    bottlenecks_capacity_limitations_report_save,
     bottlenecks_daily_conveyance_limits_by_volume,
-    bottlenecks_daily_conveyance_limits_by_volume_save,
     daily_farm_recharge_report,
-    daily_farm_recharge_report_save,
     daily_recharge_by_gw_basin,
-    daily_recharge_by_gw_basin_save,
     daily_recharge_by_site,
-    daily_recharge_by_site_save,
-    daily_summary_recharge_save,
+    daily_summary_recharge_report,
     daily_wafr_applied_by_site,
-    daily_wafr_applied_by_site_save,
     daily_wafr_report,
-    daily_wafr_report_save,
     daily_water_transfer_by_sustain_zone_report,
-    daily_water_transfer_by_sustain_zone_report_save,
     mlrp_report,
     monthly_recharge_by_site_report,
-    monthly_recharge_by_site_report_append,
-    monthly_recharge_by_site_report_detailed_save,
     monthly_recharge_by_site_report_post,
-    monthly_recharge_by_site_report_save,
+    monthly_recharge_by_site_summary,
     total_recharge_by_sustainability_zone_report,
     yearly_aggregate_farm_recharge_report,
-    yearly_aggregate_farm_recharge_report_save,
     yearly_bottleneck_capacity_logger,
-    yearly_bottleneck_capacity_logger_save,
     yearly_wafr_applied_by_site,
-    yearly_wafr_applied_by_site_save,
     yearly_wafr_report,
-    yearly_water_transfer_by_sustain_zone_report_save,
+    yearly_water_transfer_by_sustain_zone_report,
 )
-from reports.summary_operations import (
+from grat.reports.summary_operations import (
     daily_summary_recharge,
     get_site_info,
     site_volume_report,
+)
+from grat.reports.writers import (
+    REPORT_FILES,
+    write_report,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,10 +82,10 @@ def report_picker(
         daily_summary_df = daily_summary_recharge(year, sites, year_raw_wafr, wafr)
         if 2 in report_ids:
             d = annual_summary_recharge(daily_summary_df)
-            annual_summary_recharge_save(d, output_folder)
+            write_report(d, output_folder, "annual_summary_recharge")
 
         if 3 in report_ids:
-            daily_summary_recharge_save(daily_summary_df, output_folder)
+            write_report(daily_summary_recharge_report(daily_summary_df), output_folder, "daily_summary_recharge")
 
     if any(e in [4, 5, 6, 7, 8, 9, 18] for e in report_ids):
         # create output folder for year if it doesn't exist
@@ -112,64 +98,65 @@ def report_picker(
                 os.mkdir(output_folder_year)
 
             d = daily_wafr_applied_by_site(site_volume_report_df, site_info_df)
-            daily_wafr_applied_by_site_save(d, output_folder_year)
+            write_report(d, output_folder_year, "daily_wafr_applied_by_site")
 
         if 5 in report_ids:
             if not os.path.exists(output_folder_year):
                 os.mkdir(output_folder_year)
 
             d = daily_recharge_by_site(site_volume_report_df, site_info_df)
-            daily_recharge_by_site_save(d, output_folder_year)
+            write_report(d, output_folder_year, "daily_recharge_by_site")
 
         if 6 in report_ids or 7 in report_ids:
             d = monthly_recharge_by_site_report(site_volume_report_df)
-            monthly_recharge_by_site_report_append(d, output_folder)
+            write_report(d, output_folder, "monthly_recharge_by_site_temp")
 
         if 8 in report_ids:
             d = daily_farm_recharge_report(site_volume_report_df, site_info_df)
-            daily_farm_recharge_report_save(d, output_folder)
+            write_report(d, output_folder, "daily_farm_recharge_report")
 
         if 9 in report_ids:
             d = yearly_aggregate_farm_recharge_report(site_volume_report_df, site_info_df)
-            yearly_aggregate_farm_recharge_report_save(d, output_folder)
+            write_report(d, output_folder, "yearly_aggregate_farm_recharge_report")
 
         if 18 in report_ids:
             d = daily_recharge_by_gw_basin(site_volume_report_df, site_info_df)
-            daily_recharge_by_gw_basin_save(d, output_folder)
+            write_report(d, output_folder, "daily_recharge_by_gw_basin")
 
     if 10 in report_ids:
         d = daily_wafr_report(year, wafr)
-        daily_wafr_report_save(d, output_folder)
+        write_report(d, output_folder, "daily_wafr_report")
 
     if 11 in report_ids:
         if bottlenecks is not None:
             d = bottlenecks_capacity_limitations_report(year, bottlenecks)
-            bottlenecks_capacity_limitations_report_save(d, output_folder)
+            write_report(d, output_folder, "bottlenecks_capacity_limitations_report")
         else:
             logger.info("No bottlenecks provided, skipping report 11")
 
     if 12 in report_ids:
         if bottlenecks is not None:
             d = bottlenecks_daily_conveyance_limits_by_volume(year, bottlenecks)
-            bottlenecks_daily_conveyance_limits_by_volume_save(d, output_folder)
+            write_report(d, output_folder, "bottlenecks_daily_conveyance_limits_by_volume")
         else:
             logger.info("No bottlenecks provided, skipping report 12")
 
     if 13 in report_ids:
         if bottlenecks is not None:
             d = yearly_bottleneck_capacity_logger(year, bottlenecks)
-            yearly_bottleneck_capacity_logger_save(d, output_folder)
+            write_report(d, output_folder, "yearly_bottleneck_capacity_logger")
         else:
             logger.info("No bottlenecks provided, skipping report 13")
 
     if any(e in [15, 16, 17] for e in report_ids):
         # reports 15, 16, 17 are generated in postProcess since they have a complicated header
         annual_recharge_by_grouping_df = annual_recharge_by_grouping(year, sites)
-        annual_recharge_by_grouping_save(annual_recharge_by_grouping_df, output_folder)
+        if annual_recharge_by_grouping_df is not None:
+            write_report(annual_recharge_by_grouping_df, output_folder, "annual_recharge_by_grouping")
 
     if 19 in report_ids:
         d = acres_available_and_used(year, sites)
-        acres_available_and_used_save(d, output_folder)
+        write_report(d, output_folder, "acres_available_and_used")
 
     if any(e in [20, 21] for e in report_ids):
         if transfer_list is None:
@@ -178,13 +165,17 @@ def report_picker(
         else:
             # create the dailyWaterTransferBySustainZoneReport report
             df = daily_water_transfer_by_sustain_zone_report(year, sites, transfer_list)
-            daily_water_transfer_by_sustain_zone_report_save(df, output_folder)
+            write_report(df, output_folder, "daily_water_transfer_by_sustain_zone_report")
 
     if frontend_viz:
-        yearly_wafr_report(output_folder, year, wafr, year_raw_wafr)
+        write_report(yearly_wafr_report(year, wafr, year_raw_wafr), output_folder, "unused_and_orig_wafr")
         yearly_wafr_df = yearly_wafr_applied_by_site(year, sites)
-        yearly_wafr_applied_by_site_save(yearly_wafr_df, output_folder)
-        total_recharge_by_sustainability_zone_report(year, sites, output_folder)
+        write_report(yearly_wafr_df, output_folder, "yearly_wafr_applied_by_site")
+        write_report(
+            total_recharge_by_sustainability_zone_report(year, sites),
+            output_folder,
+            "total_by_sustainability_zone",
+        )
 
     return
 
@@ -207,15 +198,15 @@ def post_process(report_ids, output_folder, frontend_viz=True):
         else:
             if 15 in report_ids:
                 d = annual_recharge_by_sw_and_gw(annual_recharge_by_grouping_df)
-                annual_recharge_by_sw_and_gw_save(d, output_folder)
+                write_report(d, output_folder, "annual_recharge_by_sw_and_gw")
 
             if 16 in report_ids:
                 d = annual_recharge_by_district_and_gw(annual_recharge_by_grouping_df)
-                annual_recharge_by_district_and_gw_save(d, output_folder)
+                write_report(d, output_folder, "annual_recharge_by_district_and_gw")
 
             if 17 in report_ids:
                 d = annual_recharge_by_district_and_wafr(annual_recharge_by_grouping_df)
-                annual_recharge_by_district_and_wafr_save(d, output_folder)
+                write_report(d, output_folder, "annual_recharge_by_district_and_wafr")
 
         # cleanup by deleting "annualRechargeByGrouping.csv"
         try:
@@ -273,10 +264,10 @@ def post_process(report_ids, output_folder, frontend_viz=True):
         pivot = monthly_recharge_by_site_report_post(monthly_recharge_df, site_info_df)
 
         if 6 in report_ids:
-            monthly_recharge_by_site_report_save(pivot, output_folder)
+            write_report(monthly_recharge_by_site_summary(pivot), output_folder, "monthly_recharge_by_site_report")
 
         if 7 in report_ids:
-            monthly_recharge_by_site_report_detailed_save(pivot, output_folder)
+            write_report(pivot, output_folder, "monthly_recharge_by_site_report_detailed")
 
             # front end visualizations here
     if frontend_viz:
@@ -299,11 +290,24 @@ def post_process(report_ids, output_folder, frontend_viz=True):
         frontend_viz_results = None
 
     if 22 in report_ids:
-        mlrp_report(output_folder, os.path.join(output_folder, "temp_siteInfo.csv"))
+        site_info_df = pd.read_csv(os.path.join(output_folder, "temp_siteInfo.csv"))
+        write_report(mlrp_report(site_info_df), output_folder, "fields_repurposed")
 
     if 21 in report_ids:
         # create the yearly yearlyWaterTransferBySustainZoneReport_save report
-        yearly_water_transfer_by_sustain_zone_report_save(output_folder)
+        daily_transfer_file = os.path.join(
+            output_folder, REPORT_FILES["daily_water_transfer_by_sustain_zone_report"].filename
+        )
+        try:
+            daily_transfer_df = pd.read_csv(daily_transfer_file)
+        except FileNotFoundError:
+            logger.info("The daily water transfer by sustainability zone report has not been generated yet")
+        else:
+            write_report(
+                yearly_water_transfer_by_sustain_zone_report(daily_transfer_df),
+                output_folder,
+                "yearly_water_transfer_by_sustain_zone_report",
+            )
 
         # cleanup by deleting all files in the output folder that begin with "temp_"
     try:
