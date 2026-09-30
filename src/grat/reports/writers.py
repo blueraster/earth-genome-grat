@@ -11,6 +11,8 @@ import os
 import shutil
 from typing import NamedTuple
 
+import pandas as pd
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,6 +55,8 @@ REPORT_FILES: dict[str, ReportFile] = {
         "21_Yearly Water Transfer by Sustainability Zone.csv", append=False
     ),
     "fields_repurposed": ReportFile("22_Fields Repurposed.csv", append=False),
+    # Intermediates. Written per year, read back after the run, then deleted.
+    "site_info": ReportFile("temp_siteInfo.csv", append=False),
     # Intermediates. These are appended to across the years, read back by
     # `selector.post_process`, and deleted once the run finishes.
     "annual_recharge_by_grouping": ReportFile("annualRechargeByGrouping.csv"),
@@ -137,3 +141,26 @@ def write_report(df, output_folder, key):
     """
     report_file = REPORT_FILES[key]
     return write_csv(df, output_folder, report_file.filename, append=report_file.append)
+
+
+def read_report(output_folder, key, year=None, dtype=None):
+    """Reads a report back from the folder it was written into.
+
+    This is how a caller inspects a report after a run without the library having held
+    anything in memory: the csv was written once, so read it back by name.
+
+    Args:
+        output_folder: the run's output folder.
+        key: entry in `REPORT_FILES`.
+        year: water year, for the reports written into a per-year subfolder.
+        dtype: optional column types, passed through to `pandas.read_csv`. The
+            reports that are read back and re-pivoted need the types the csv threw away.
+
+    Returns: the report as a dataframe
+
+    Raises:
+        KeyError: `key` is not a known report.
+        FileNotFoundError: that report is not in `output_folder`.
+    """
+    folder = output_folder if year is None else os.path.join(output_folder, str(year))
+    return pd.read_csv(os.path.join(folder, REPORT_FILES[key].filename), dtype=dtype)

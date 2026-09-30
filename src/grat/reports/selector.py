@@ -1,11 +1,11 @@
 """Selects which reports to generate and saves them."""
 
-import glob
 import logging
 import os
 
 import pandas as pd
 
+from grat.reports import catalog
 from grat.reports.builders import (
     acres_available_and_used,
     annual_recharge_by_district_and_gw,
@@ -38,296 +38,317 @@ from grat.reports.builders import (
 )
 from grat.reports.writers import (
     REPORT_FILES,
+    read_report,
     write_report,
 )
 
 logger = logging.getLogger(__name__)
 
+# Working files: everything writers knows about that is not a published report. These
+# are written per year, read back once the run finishes, and then deleted.
+INTERMEDIATE_FILES = frozenset(REPORT_FILES) - catalog.CSV_REPORTS
+
 
 def report_picker(
-    report_ids,
+    names,
     output_folder,
     year,
     sites,
     year_raw_wafr,
     wafr,
-    bottlenecks,
-    frontend_viz=True,
+    bottlenecks=None,
     transfer_list=None,
 ):
     """Generates the reports for a single year of results.
 
-    Will either append rows or save to a year specific output folder.
+    Each intermediate is built only if something asked for it, so a run that wants one
+    cheap report does not pay for a full site scan.
 
     Args:
-        report_ids: list of reports to be generated
-        output_folder: path to the folder used to store the outputs
+        names: report names to generate. Post-run names are accepted and used only to
+            decide which intermediates this year must contribute to.
+        output_folder: folder to write into, or None to build the dataframes and write
+            nothing - the interactive path.
         year: the current year
         sites: list of the sites objects
         year_raw_wafr: the unmodified WAFR for this year
         wafr: the end wafr after water has been applied to the sites
-        bottlenecks: list of bottlenecks
-        frontend_viz: boolean to generate the frontend visualizations data
+        bottlenecks: list of bottlenecks, or None if the run has none
         transfer_list: list of sustainability zones that can receive water from transfers
+
+    Returns: dict of report name to dataframe, for the reports produced this year
+
+    Raises:
+        KeyError: a name is not a known report.
     """
     logger.info("Generating reports")
+    wanted = catalog.expand(names)
 
-    site_info_df = get_site_info(sites)
-    site_info_df.to_csv(os.path.join(output_folder, "temp_siteInfo.csv"), index=False)
+    if bottlenecks is None:
+        skipped = wanted & catalog.NEEDS_BOTTLENECKS
+        if skipped:
+            logger.info("No bottlenecks provided, skipping %s", ", ".join(sorted(skipped)))
+        wanted -= catalog.NEEDS_BOTTLENECKS
 
-    if any(e in [2, 3] for e in report_ids):
-        # create the dailySummaryDF
+    if transfer_list is None:
+        skipped = wanted & catalog.NEEDS_TRANSFERS
+        if skipped:
+            logger.warning("No transfer list provided, skipping %s", ", ".join(sorted(skipped)))
+        wanted -= catalog.NEEDS_TRANSFERS
+
+    def publish(df, key, folder=output_folder):
+        """Writes a report and records its frame."""
+        if folder is not None:
+            write_report(df, folder, key)
+        if key in wanted:
+            produced[key] = df
+
+    produced = {}
+
+    # Site attribution is year-invariant, but the reports that read it back after the
+    # run need it on disk, so it is rewritten each year.
+    if wanted & catalog.NEEDS_SITE_INFO:
+        site_info_df = get_site_info(sites)
+        if output_folder is not None:
+            write_report(site_info_df, output_folder, "site_info")
+
+    if wanted & catalog.NEEDS_DAILY_SUMMARY:
         daily_summary_df = daily_summary_recharge(year, sites, year_raw_wafr, wafr)
-        if 2 in report_ids:
-            d = annual_summary_recharge(daily_summary_df)
-            write_report(d, output_folder, "annual_summary_recharge")
 
-        if 3 in report_ids:
-            write_report(daily_summary_recharge_report(daily_summary_df), output_folder, "daily_summary_recharge")
+        if "annual_summary_recharge" in wanted:
+            publish(annual_summary_recharge(daily_summary_df), "annual_summary_recharge")
 
-    if any(e in [4, 5, 6, 7, 8, 9, 18] for e in report_ids):
-        # create output folder for year if it doesn't exist
-        output_folder_year = os.path.join(output_folder, f"{year}")
+        if "daily_summary_recharge" in wanted:
+            publish(daily_summary_recharge_report(daily_summary_df), "daily_summary_recharge")
 
+    if wanted & catalog.NEEDS_SITE_VOLUME:
         site_volume_report_df = site_volume_report(year, sites)
+        year_folder = None if output_folder is None else os.path.join(output_folder, f"{year}")
+        if year_folder is not None and wanted & catalog.YEAR_SUBFOLDER:
+            os.makedirs(year_folder, exist_ok=True)
 
-        if 4 in report_ids:
-            if not os.path.exists(output_folder_year):
-                os.mkdir(output_folder_year)
+        if "daily_wafr_applied_by_site" in wanted:
+            publish(
+                daily_wafr_applied_by_site(site_volume_report_df, site_info_df),
+                "daily_wafr_applied_by_site",
+                year_folder,
+            )
 
-            d = daily_wafr_applied_by_site(site_volume_report_df, site_info_df)
-            write_report(d, output_folder_year, "daily_wafr_applied_by_site")
+        if "daily_recharge_by_site" in wanted:
+            publish(
+                daily_recharge_by_site(site_volume_report_df, site_info_df),
+                "daily_recharge_by_site",
+                year_folder,
+            )
 
-        if 5 in report_ids:
-            if not os.path.exists(output_folder_year):
-                os.mkdir(output_folder_year)
+        if wanted & catalog.NEEDS_MONTHLY:
+            # accumulated per year and pivoted after the run, so it is never a report itself
+            monthly_df = monthly_recharge_by_site_report(site_volume_report_df)
+            if output_folder is not None:
+                write_report(monthly_df, output_folder, "monthly_recharge_by_site_temp")
 
-            d = daily_recharge_by_site(site_volume_report_df, site_info_df)
-            write_report(d, output_folder_year, "daily_recharge_by_site")
+        if "daily_farm_recharge_report" in wanted:
+            publish(daily_farm_recharge_report(site_volume_report_df, site_info_df), "daily_farm_recharge_report")
 
-        if 6 in report_ids or 7 in report_ids:
-            d = monthly_recharge_by_site_report(site_volume_report_df)
-            write_report(d, output_folder, "monthly_recharge_by_site_temp")
+        if "yearly_aggregate_farm_recharge_report" in wanted:
+            publish(
+                yearly_aggregate_farm_recharge_report(site_volume_report_df, site_info_df),
+                "yearly_aggregate_farm_recharge_report",
+            )
 
-        if 8 in report_ids:
-            d = daily_farm_recharge_report(site_volume_report_df, site_info_df)
-            write_report(d, output_folder, "daily_farm_recharge_report")
+        if "daily_recharge_by_gw_basin" in wanted:
+            publish(daily_recharge_by_gw_basin(site_volume_report_df, site_info_df), "daily_recharge_by_gw_basin")
 
-        if 9 in report_ids:
-            d = yearly_aggregate_farm_recharge_report(site_volume_report_df, site_info_df)
-            write_report(d, output_folder, "yearly_aggregate_farm_recharge_report")
+    if "daily_wafr_report" in wanted:
+        publish(daily_wafr_report(year, wafr), "daily_wafr_report")
 
-        if 18 in report_ids:
-            d = daily_recharge_by_gw_basin(site_volume_report_df, site_info_df)
-            write_report(d, output_folder, "daily_recharge_by_gw_basin")
+    if "bottlenecks_capacity_limitations_report" in wanted:
+        publish(bottlenecks_capacity_limitations_report(year, bottlenecks), "bottlenecks_capacity_limitations_report")
 
-    if 10 in report_ids:
-        d = daily_wafr_report(year, wafr)
-        write_report(d, output_folder, "daily_wafr_report")
+    if "bottlenecks_daily_conveyance_limits_by_volume" in wanted:
+        publish(
+            bottlenecks_daily_conveyance_limits_by_volume(year, bottlenecks),
+            "bottlenecks_daily_conveyance_limits_by_volume",
+        )
 
-    if 11 in report_ids:
-        if bottlenecks is not None:
-            d = bottlenecks_capacity_limitations_report(year, bottlenecks)
-            write_report(d, output_folder, "bottlenecks_capacity_limitations_report")
-        else:
-            logger.info("No bottlenecks provided, skipping report 11")
+    if "yearly_bottleneck_capacity_logger" in wanted:
+        publish(yearly_bottleneck_capacity_logger(year, bottlenecks), "yearly_bottleneck_capacity_logger")
 
-    if 12 in report_ids:
-        if bottlenecks is not None:
-            d = bottlenecks_daily_conveyance_limits_by_volume(year, bottlenecks)
-            write_report(d, output_folder, "bottlenecks_daily_conveyance_limits_by_volume")
-        else:
-            logger.info("No bottlenecks provided, skipping report 12")
+    if wanted & catalog.NEEDS_ANNUAL_GROUPING:
+        # reports 15, 16 and 17 have a complicated header, so they are built after the run
+        grouping_df = annual_recharge_by_grouping(year, sites)
+        if grouping_df is not None and output_folder is not None:
+            write_report(grouping_df, output_folder, "annual_recharge_by_grouping")
 
-    if 13 in report_ids:
-        if bottlenecks is not None:
-            d = yearly_bottleneck_capacity_logger(year, bottlenecks)
-            write_report(d, output_folder, "yearly_bottleneck_capacity_logger")
-        else:
-            logger.info("No bottlenecks provided, skipping report 13")
+    if "acres_available_and_used" in wanted:
+        publish(acres_available_and_used(year, sites), "acres_available_and_used")
 
-    if any(e in [15, 16, 17] for e in report_ids):
-        # reports 15, 16, 17 are generated in postProcess since they have a complicated header
-        annual_recharge_by_grouping_df = annual_recharge_by_grouping(year, sites)
-        if annual_recharge_by_grouping_df is not None:
-            write_report(annual_recharge_by_grouping_df, output_folder, "annual_recharge_by_grouping")
+    if "daily_water_transfer_by_sustain_zone_report" in wanted:
+        publish(
+            daily_water_transfer_by_sustain_zone_report(year, sites, transfer_list),
+            "daily_water_transfer_by_sustain_zone_report",
+        )
 
-    if 19 in report_ids:
-        d = acres_available_and_used(year, sites)
-        write_report(d, output_folder, "acres_available_and_used")
-
-    if any(e in [20, 21] for e in report_ids):
-        if transfer_list is None:
-            logger.warning("No transfer list provided, skipping report 20 & 21")
-
-        else:
-            # create the dailyWaterTransferBySustainZoneReport report
-            df = daily_water_transfer_by_sustain_zone_report(year, sites, transfer_list)
-            write_report(df, output_folder, "daily_water_transfer_by_sustain_zone_report")
-
-    if frontend_viz:
+    # Intermediates for the frontend series, each built only if its series was asked for.
+    if wanted & catalog.NEEDS_UNUSED_WAFR and output_folder is not None:
         write_report(yearly_wafr_report(year, wafr, year_raw_wafr), output_folder, "unused_and_orig_wafr")
-        yearly_wafr_df = yearly_wafr_applied_by_site(year, sites)
-        write_report(yearly_wafr_df, output_folder, "yearly_wafr_applied_by_site")
+
+    if wanted & catalog.NEEDS_WAFR_BY_SITE and output_folder is not None:
+        write_report(yearly_wafr_applied_by_site(year, sites), output_folder, "yearly_wafr_applied_by_site")
+
+    if wanted & catalog.NEEDS_TOTAL_BY_ZONE and output_folder is not None:
         write_report(
             total_recharge_by_sustainability_zone_report(year, sites),
             output_folder,
             "total_by_sustainability_zone",
         )
 
-    return
+    return produced
 
 
-def post_process(report_ids, output_folder, frontend_viz=True):
-    """Dataframe operations that run AFTER all years are completed.
+MONTHLY_DTYPES = {
+    "Year": int,
+    "gratID": "string",
+    "1": float,
+    "2": float,
+    "3": float,
+    "4": float,
+    "5": float,
+    "6": float,
+    "7": float,
+    "8": float,
+    "9": float,
+    "10": float,
+    "11": float,
+    "12": float,
+}
+
+SITE_INFO_DTYPES = {
+    "gratID": "string",
+    "rechargeType": "string",
+    "acres": float,
+    "cfsLimit": float,
+    "precipGrid": float,
+    "bottleneckIDs": "string",
+    "soilType": "string",
+    "rsi": float,
+    "sortIndex": int,
+    "crop": "string",
+    "inLieuCrop": "string",
+    "subbasin": "string",
+    "district": "string",
+    "sustainabilityZone": "string",
+    "rma": "string",
+    "watershed": "string",
+    "dac": "string",
+    "gsc": "string",
+    "subsidence": "string",
+    "inbasinret": "string",
+    "shorebird": "string",
+}
+
+
+def post_process(names, output_folder, produced=None):
+    """Builds the reports that can only run once every water year is done.
 
     Args:
-        report_ids: list of reports that were selected
-        output_folder: path to the output folder
-        frontend_viz: boolean to generate the frontend visualizations data
+        names: report names that were selected.
+        output_folder: path to the output folder report_picker wrote into.
+        produced: report names that report_picker actually produced. A report whose
+            input was skipped - because the run had no bottlenecks or no transfer list -
+            is skipped here too rather than failing on a missing file. Defaults to
+            everything requested.
 
-    Returns: dict of the frontend visualization results, or None when frontend_viz is False
+    Returns: dict of report name to result, holding the frontend series as json-ready
+        dicts and the post-run csv reports as dataframes
+
+    Raises:
+        KeyError: a name is not a known report.
     """
-    if any(e in [15, 16, 17] for e in report_ids):
+    wanted = catalog.expand(names)
+    if produced is not None:
+        # A per-year report can be dropped by a missing model input; when that happens the
+        # post-run report built from it has nothing to read, so it goes too.
+        guarded = (catalog.NEEDS_TRANSFERS | catalog.NEEDS_BOTTLENECKS) & catalog.PER_YEAR
+        missing = guarded - set(produced)
+        wanted -= missing
+        wanted -= {name for name, sources in catalog.IMPLIES.items() if sources & missing}
+    results = {}
+
+    if wanted & catalog.NEEDS_ANNUAL_GROUPING:
         try:
-            annual_recharge_by_grouping_df = pd.read_csv(os.path.join(output_folder, "annualRechargeByGrouping.csv"))
+            grouping_df = read_report(output_folder, "annual_recharge_by_grouping")
         except (OSError, pd.errors.EmptyDataError, pd.errors.ParserError):
-            logger.exception("unable to read annualRechargeByGrouping.csv in post_process")
+            logger.exception("unable to read the annual recharge by grouping intermediate")
         else:
-            if 15 in report_ids:
-                d = annual_recharge_by_sw_and_gw(annual_recharge_by_grouping_df)
-                write_report(d, output_folder, "annual_recharge_by_sw_and_gw")
+            for name, build in (
+                ("annual_recharge_by_sw_and_gw", annual_recharge_by_sw_and_gw),
+                ("annual_recharge_by_district_and_gw", annual_recharge_by_district_and_gw),
+                ("annual_recharge_by_district_and_wafr", annual_recharge_by_district_and_wafr),
+            ):
+                if name in wanted:
+                    results[name] = build(grouping_df)
+                    write_report(results[name], output_folder, name)
 
-            if 16 in report_ids:
-                d = annual_recharge_by_district_and_gw(annual_recharge_by_grouping_df)
-                write_report(d, output_folder, "annual_recharge_by_district_and_gw")
-
-            if 17 in report_ids:
-                d = annual_recharge_by_district_and_wafr(annual_recharge_by_grouping_df)
-                write_report(d, output_folder, "annual_recharge_by_district_and_wafr")
-
-        # cleanup by deleting "annualRechargeByGrouping.csv"
-        try:
-            os.remove(os.path.join(output_folder, "annualRechargeByGrouping.csv"))
-        except OSError:
-            logger.warning("unable to remove files in post_process reports function", exc_info=True)
-
-    if any(e in [6, 7] for e in report_ids):
-        monthly_recharge_df = pd.read_csv(
-            os.path.join(output_folder, "temp_Monthly Recharge by Site.csv"),
-            dtype={
-                "Year": int,
-                "gratID": "string",
-                "1": float,
-                "2": float,
-                "3": float,
-                "4": float,
-                "5": float,
-                "6": float,
-                "7": float,
-                "8": float,
-                "9": float,
-                "10": float,
-                "11": float,
-                "12": float,
-            },
+    if wanted & catalog.NEEDS_MONTHLY:
+        pivot = monthly_recharge_by_site_report_post(
+            read_report(output_folder, "monthly_recharge_by_site_temp", dtype=MONTHLY_DTYPES),
+            read_report(output_folder, "site_info", dtype=SITE_INFO_DTYPES),
         )
 
-        site_info_df = pd.read_csv(
-            os.path.join(output_folder, "temp_siteInfo.csv"),
-            dtype={
-                "gratID": "string",
-                "rechargeType": "string",
-                "acres": float,
-                "cfsLimit": float,
-                "precipGrid": float,
-                "bottleneckIDs": "string",
-                "soilType": "string",
-                "rsi": float,
-                "sortIndex": int,
-                "crop": "string",
-                "inLieuCrop": "string",
-                "subbasin": "string",
-                "district": "string",
-                "sustainabilityZone": "string",
-                "rma": "string",
-                "watershed": "string",
-                "dac": "string",
-                "gsc": "string",
-                "subsidence": "string",
-                "inbasinret": "string",
-                "shorebird": "string",
-            },
-        )
-        pivot = monthly_recharge_by_site_report_post(monthly_recharge_df, site_info_df)
+        if "monthly_recharge_by_site_report" in wanted:
+            results["monthly_recharge_by_site_report"] = monthly_recharge_by_site_summary(pivot)
+            write_report(results["monthly_recharge_by_site_report"], output_folder, "monthly_recharge_by_site_report")
 
-        if 6 in report_ids:
-            write_report(monthly_recharge_by_site_summary(pivot), output_folder, "monthly_recharge_by_site_report")
-
-        if 7 in report_ids:
+        if "monthly_recharge_by_site_report_detailed" in wanted:
+            results["monthly_recharge_by_site_report_detailed"] = pivot
             write_report(pivot, output_folder, "monthly_recharge_by_site_report_detailed")
 
-            # front end visualizations here
-    if frontend_viz:
-        yearly_recharge_volumes_json = post_process_viz_recharge_by_type(output_folder) if 2 in report_ids else None
+    if "fields_repurposed" in wanted:
+        results["fields_repurposed"] = mlrp_report(read_report(output_folder, "site_info"))
+        write_report(results["fields_repurposed"], output_folder, "fields_repurposed")
 
-        unused_wafr_json = post_process_unused_wafr(output_folder)
-
-        max_wafr_per_site = post_process_max_per_site(output_folder)
-
-        sustain_zones = post_process_recharge_by_sustain_zone(output_folder)
-
-        frontend_viz_results = {
-            "yearly_recharge_volumes": yearly_recharge_volumes_json,
-            "unused_wafr": unused_wafr_json,
-            "max_wafr_per_site": max_wafr_per_site,
-            "recharge_by_sustainability_zone": sustain_zones,
-        }
-
-    else:
-        frontend_viz_results = None
-
-    if 22 in report_ids:
-        site_info_df = pd.read_csv(os.path.join(output_folder, "temp_siteInfo.csv"))
-        write_report(mlrp_report(site_info_df), output_folder, "fields_repurposed")
-
-    if 21 in report_ids:
-        # create the yearly yearlyWaterTransferBySustainZoneReport_save report
-        daily_transfer_file = os.path.join(
-            output_folder, REPORT_FILES["daily_water_transfer_by_sustain_zone_report"].filename
+    if "yearly_water_transfer_by_sustain_zone_report" in wanted:
+        name = "yearly_water_transfer_by_sustain_zone_report"
+        results[name] = yearly_water_transfer_by_sustain_zone_report(
+            read_report(output_folder, "daily_water_transfer_by_sustain_zone_report")
         )
+        write_report(results[name], output_folder, name)
+
+    # The frontend series. Each reads back the intermediate its consumer asked for.
+    for name, source, build in (
+        ("yearly_recharge_volumes", "annual_summary_recharge", post_process_viz_recharge_by_type),
+        ("unused_wafr", "unused_and_orig_wafr", post_process_unused_wafr),
+        ("max_wafr_per_site", "yearly_wafr_applied_by_site", post_process_max_per_site),
+        ("recharge_by_sustainability_zone", "total_by_sustainability_zone", post_process_recharge_by_sustain_zone),
+    ):
+        if name in wanted:
+            results[name] = build(read_report(output_folder, source))
+
+    _remove_intermediates(output_folder)
+    return results
+
+
+def _remove_intermediates(output_folder):
+    """Deletes the per-year working files, leaving only the published reports."""
+    for key in INTERMEDIATE_FILES:
+        path = os.path.join(output_folder, REPORT_FILES[key].filename)
         try:
-            daily_transfer_df = pd.read_csv(daily_transfer_file)
+            os.remove(path)
         except FileNotFoundError:
-            logger.info("The daily water transfer by sustainability zone report has not been generated yet")
-        else:
-            write_report(
-                yearly_water_transfer_by_sustain_zone_report(daily_transfer_df),
-                output_folder,
-                "yearly_water_transfer_by_sustain_zone_report",
-            )
-
-        # cleanup by deleting all files in the output folder that begin with "temp_"
-    try:
-        temp_files = glob.glob(os.path.join(output_folder, "temp_*"))
-        for t in temp_files:
-            os.remove(t)
-    except OSError:
-        logger.warning("unable to remove files in post_process reports function", exc_info=True)
-    return frontend_viz_results
+            continue
+        except OSError:
+            logger.warning("unable to remove the intermediate %s", path, exc_info=True)
 
 
-def post_process_viz_recharge_by_type(output_folder):
+def post_process_viz_recharge_by_type(annual_summary_recharge_df):
     """Outputs the JSON used to build the frontend chart visualizations using report 2.
 
     Args:
-        output_folder: path to the output folder containing the report 2 csv
+        annual_summary_recharge_df: report 2 values for every water year
 
     Returns: dict keyed by "Years" and "Total" of recharge volumes by type
     """
-    # load the data from report 2 - annual summary recharge and wafr
-    annual_summary_recharge_df = pd.read_csv(os.path.join(output_folder, "02_Annual Summary Recharge and WAFR.csv"))
-
     # keep only the columns needed for the visualization
     annual_summary_recharge_df = annual_summary_recharge_df[
         [
@@ -362,16 +383,14 @@ def post_process_viz_recharge_by_type(output_folder):
     }
 
 
-def post_process_unused_wafr(output_folder):
+def post_process_unused_wafr(wafr_unused_and_orig_all_years):
     """Post process the unused vs original WAFR.
 
     Args:
-        output_folder: path to the output folder containing temp_unused_and_orig_wafr_by_source.csv
+        wafr_unused_and_orig_all_years: input and unused WAFR by source, every water year
 
     Returns: dict of WAFR source to its input and unused volumes
     """
-    # post process the unused vs original WAFR
-    wafr_unused_and_orig_all_years = pd.read_csv(os.path.join(output_folder, "temp_unused_and_orig_wafr_by_source.csv"))
     df = wafr_unused_and_orig_all_years.groupby("Type").sum(numeric_only=True).reset_index().drop(columns=["Year"])
 
     # round to one decimal place
@@ -387,16 +406,14 @@ def post_process_unused_wafr(output_folder):
     return result
 
 
-def post_process_max_per_site(output_folder):
+def post_process_max_per_site(df):
     """Post process the max used volume per site.
 
     Args:
-        output_folder: path to the output folder containing temp_Yearly WAFR Applied by Site.csv
+        df: WAFR applied per site for every water year
 
     Returns: dict of gratID to the largest single-year used volume, omitting sites that used nothing
     """
-    df = pd.read_csv(os.path.join(output_folder, "temp_Yearly WAFR Applied by Site.csv"))
-
     # for each site (gratID) in the dataframe, get the max usedVolume value
     df = df.groupby("gratID")["usedVolume"].max().reset_index().rename(columns={"usedVolume": "maxUsedVolumeForAYear"})
 
@@ -413,18 +430,16 @@ def post_process_max_per_site(output_folder):
     return max_used_volume_dict
 
 
-def post_process_recharge_by_sustain_zone(output_folder):
-    """Post process to get the WAFR by sustainability zone for the 50-year period.
+def post_process_recharge_by_sustain_zone(df):
+    """Post process to get the WAFR by sustainability zone for the whole run.
 
-    Sums the recharge by sustainability zone that is appended per-year in each of the model year runs.
+    Sums the recharge by sustainability zone collected from each of the model year runs.
 
     Args:
-        output_folder: path to the output folder containing the temp_totalBySustainabilityZone.csv file
+        df: total recharge by sustainability zone for every water year
 
     Returns: dictionary with sustainability zone as key and total acre-feet as value
     """
-    df = pd.read_csv(os.path.join(output_folder, "temp_totalBySustainabilityZone.csv"))
-
     # group by the sustainability zone and sum the acre-feet to get the total for each zone
     df = df.groupby("sustainabilityZone")["acreFeet"].sum().reset_index()
 
@@ -445,37 +460,3 @@ def post_process_recharge_by_sustain_zone(output_folder):
         recharge_by_sustain_zone_dict[zone] = float(row["acreFeet"])
 
     return recharge_by_sustain_zone_dict
-
-
-def post_process_recharge_by_district(output_folder):
-    """Post process to get the WAFR by district for the 50-year period.
-
-    Sums the recharge by district that is appended per-year in each of the model year runs.
-
-    Args:
-        output_folder: path to the output folder containing the temp_totalByDistrict.csv file
-
-    Returns: dictionary with district as key and total acre-feet as value
-    """
-    df = pd.read_csv(os.path.join(output_folder, "temp_totalByDistrict.csv"))
-
-    # group by zone and sum the acre-feet to get the total for each zone
-    df = df.groupby("district")["acreFeet"].sum().reset_index()
-
-    # round the acreFeet to 2 decimal places
-    df["acreFeet"] = df["acreFeet"].round(2)
-    # save the df to a dict where the key is the district and the value is the acreFeet
-    recharge_by_district_dict = {}
-    for _index, row in df.iterrows():
-        raw_value = row["district"]
-
-        try:
-            # handle numeric values like 1, 1.0, "1.0"
-            zone = str(int(float(raw_value)))
-        except (ValueError, TypeError):
-            # fallback for text values like "No Zone"
-            zone = str(raw_value).strip()
-
-        recharge_by_district_dict[zone] = row["acreFeet"]
-
-    return recharge_by_district_dict

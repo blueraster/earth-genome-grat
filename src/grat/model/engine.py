@@ -462,8 +462,7 @@ def start_analysis(
     precip,
     years=None,
     crop_calendar_in_lieu=None,
-    output_folder=None,
-    selected_reports=None,
+    on_year=None,
     use_in_lieu=True,
     use_ofr=True,
     rma_sort=True,
@@ -488,21 +487,23 @@ def start_analysis(
         years: water years to run. Defaults to 2001-2099.
         crop_calendar_in_lieu: accepted application rate (feet per day) for
             in-lieu recharge, indexed as `[crop][region_number][day]`.
-        output_folder: folder to write reports into. Not yet used — the
-            reporting layer has not been ported.
-        selected_reports: reports to generate. Not yet used — the reporting
-            layer has not been ported.
         use_in_lieu: include in-lieu recharge.
         use_ofr: include on-farm recharge.
         rma_sort: order in-lieu sites by RMA rank first.
         transfer_goals: transfer goal per district or sustainability zone, used
             to derive each year's transfer budgets. See
             `transfers.calc_transfer_limits`.
+        on_year: called once per water year, just before that year's results are
+            discarded, as `on_year(year, sites, raw_wafr, wafr, bottlenecks,
+            transfer_limits)`. `raw_wafr` is the year's unmodified input and
+            `wafr` is the same data drawn down by the run; reports need both.
+            This is the seam the reporting layer hangs off, so the model itself
+            depends on nothing in `grat.reports`.
 
     Note:
-        Returns nothing at present. Each year's results are computed and then
-        discarded, because the reporting layer that consumed them has not been
-        ported yet. Call `process_year` directly to get a year's results back.
+        Returns nothing. Each year's results are handed to `on_year` if one was
+        given and then discarded, so a long run holds one year at a time. Call
+        `process_year` directly to get a single year's results back.
     """
     if transfer_goals is None:
         transfer_goals = {}
@@ -544,25 +545,16 @@ def start_analysis(
             transfer_limits,
         )
 
-        # TODO - reportPicker not ported over yet to OSGRAT
-        # if selected_reports is not None:
-        #     selector.reportPicker(
-        #         selected_reports,
-        #         output_folder,
-        #         year,
-        #         sites,
-        #         year_raw_wafr,
-        #         wafr,
-        #         bottlenecks,
-        #         transfer_list=transfer_limits.keys() if transfer_limits else None,
-        #     )
+        if on_year is not None:
+            on_year(
+                year=year,
+                sites=sites,
+                raw_wafr=year_raw_wafr,
+                wafr=wafr,
+                bottlenecks=bottlenecks,
+                transfer_limits=transfer_limits,
+            )
 
         del sites, wafr, bottlenecks  # delete to reduce memory consumption
-
-    # TODO - postProcess not ported over yet to OSGRAT
-    # # post process for operations that collate multiple temp files
-    # if selected_reports is not None:
-    #     frontend_viz_results = selector.postProcess(selected_reports, output_folder)
-    # return frontend_viz_results
 
     return
