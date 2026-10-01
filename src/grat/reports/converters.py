@@ -63,7 +63,6 @@ def find_wy_month_index(month_name):
         month_name: name of the month
 
     Returns: index position of the month (oct -> sept) in the water year
-
     """
     month_list = [
         "October",
@@ -83,14 +82,18 @@ def find_wy_month_index(month_name):
 
 
 def sum_array_by_month(daily_values, leap_year=False):
-    """Slices an array of daily values by month grouply and sums the values.
+    """Slices an array of daily values into months and sums each one.
+
+    The months are **water-year** months, so the first entry of the returned list is
+    October and the last is September. Reports 06 and 07 label these sums `1` to `12`,
+    which means their column `"1"` holds October, not January.
 
     Args:
-        daily_values: array of daily values orded by DOWY
-        leap_year: boolean. Is this year a leap year?
+        daily_values: daily values ordered by day of the water year
+        leap_year: whether this water year has 366 days
 
     Returns:
-        A list of monthly sums
+        A list of 12 monthly sums, October first
     """
     # Initialize a dictionary of month lengths for a non-leap year
     month_lengths = {

@@ -83,9 +83,10 @@ def construct_output_folder_name(path_to_folder: str):
         folder_name = os.path.join(path_to_folder, name)
         try:
             os.mkdir(folder_name)
-            return folder_name
         except FileExistsError:
             suffix += 1
+        else:
+            return folder_name
 
 
 def zip_output_folder(result_folder_path, custom_name=None):
