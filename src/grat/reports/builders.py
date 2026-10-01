@@ -11,7 +11,7 @@ from grat.reports.converters import is_leap_year, sum_array_by_month
 logger = logging.getLogger(__name__)
 
 # Output column name -> attribute on the site object. The column names are part of the
-# report output contract (report_generator and selector read them by these spellings),
+# report output contract (selector and writers read them by these spellings),
 # so they keep their original casing while the lookups follow the model's attributes.
 SITE_ATTRIBUTES = {
     "rechargeType": "recharge_type",
@@ -208,7 +208,6 @@ def annual_summary_recharge(daily_summary_recharge_df):
         daily_summary_recharge_df: dataframe output from the daily_summary_recharge function
 
     Returns: pandas dataframe
-
     """
     # group by water year and aggregate the rows using sums (EOY capacity uses max value)
 
@@ -265,7 +264,7 @@ def daily_summary_recharge_report(df):
     the frame this returns is exactly what lands in the csv.
 
     Args:
-        df: dataframe from summary_operations.daily_summary_recharge, combined across
+        df: dataframe from daily_summary_recharge, combined across
             every water year
 
     Returns: dataframe with the report 03 columns, in report order
@@ -294,7 +293,6 @@ def daily_wafr_applied_by_site(site_volume_report_df, site_info_df):
         site_info_df: dataframe with the site info values (from siteInfo function())
 
     Returns: dataframe with daily WAFR applied by site
-
     """
     # get the list of years
     years = site_volume_report_df["Year"].unique()
@@ -309,7 +307,6 @@ def daily_wafr_applied_by_site(site_volume_report_df, site_info_df):
         ["dailyRechargeVolumesArray", "UsedVolumeArray"], axis=1
     )
 
-    # df_pivot = pd.pivot_table(df, index='gratID', columns=)
     d1 = df.set_index(["gratID", "Year"]).unstack()
     d1.columns = d1.columns.map(lambda x: "Year {} {}".format(*reversed(x)))
     d1.reset_index(inplace=True)
@@ -340,7 +337,6 @@ def daily_recharge_by_site(site_volume_report_df, site_info_df):
         site_info_df: dataframe with the site info values (from siteInfo function())
 
     Returns: dataframe with daily recharge by site
-
     """
     # get the list of years
     years = site_volume_report_df["Year"].unique()
@@ -355,7 +351,6 @@ def daily_recharge_by_site(site_volume_report_df, site_info_df):
         ["dailyRechargeVolumesArray", "UsedVolumeArray"], axis=1
     )
 
-    # df_pivot = pd.pivot_table(df, index='gratID', columns=)
     d1 = df.set_index(["gratID", "Year"]).unstack()
     d1.columns = d1.columns.map(lambda x: "Year {} {}".format(*reversed(x)))
     d1.reset_index(inplace=True)
@@ -381,11 +376,14 @@ def daily_recharge_by_site(site_volume_report_df, site_info_df):
 def monthly_recharge_by_site_report(site_volume_report_df):
     """Aggregates the daily recharge volume arrays into monthly totals per site and recharge volume type.
 
+    The `1` to `12` columns are **water-year** months, so `1` is October and `12` is
+    September - see `converters.sum_array_by_month`. Reports 06 and 07 publish them
+    under those names, so they are not renamed here.
+
     Args:
         site_volume_report_df: dataframe with the site volume report values (from site_volume_report function())
 
-    Returns: dataframe with monthly recharge by site
-
+    Returns: dataframe with monthly recharge by site, one row per site and volume type
     """
     site_volume_report_df = (
         site_volume_report_df.copy()
@@ -475,7 +473,7 @@ def monthly_recharge_by_site_report_post(df, site_info):
 
     pivot = pivot.fillna(0)
 
-    # add site info?
+    # join the site attribution onto the pivoted values
     joined = site_info.merge(pivot, on="gratID", how="right").sort_values("sortIndex")
     joined["FeatureType"] = joined[
         "rechargeType"
@@ -541,7 +539,6 @@ def daily_farm_recharge_report(site_ofr_usage_report_df, site_info_df):
         site_info_df:   dataframe with site information
 
     Returns: dataframe with daily_farm_recharge_report values
-
     """
     # join site the site info
     joined = site_info_df.merge(site_ofr_usage_report_df, on="gratID", how="right").sort_values("sortIndex")
@@ -554,7 +551,7 @@ def daily_farm_recharge_report(site_ofr_usage_report_df, site_info_df):
     # join the split attribute back with the original
     joined = pd.concat([joined, split], axis=1).drop("dailyRechargeVolumesArray", axis=1)
 
-    # group by to summ by year variable key
+    # group by to sum by year variable key
     column_names = [f"DOWY {i}" for i in range(1, 367)]
 
     # group by soilType + OFR crop
@@ -564,7 +561,6 @@ def daily_farm_recharge_report(site_ofr_usage_report_df, site_info_df):
     # get the list of years
     years = grouped_df["Year"].unique()
 
-    # df_pivot = pd.pivot_table(df, index='gratID', columns=)
     d1 = grouped_df.set_index(["variable_key", "Year"]).unstack()
     d1.columns = d1.columns.map(lambda x: "Year {} {}".format(*reversed(x)))
     d1.reset_index(inplace=True)
@@ -594,7 +590,6 @@ def yearly_aggregate_farm_recharge_report(site_ofr_usage_report_df, site_info_df
         site_info_df: dataframe with site information
 
     Returns: dataframe with yearly_aggregate_farm_recharge_report values
-
     """
     # join site the site info
     joined = site_info_df.merge(site_ofr_usage_report_df, on="gratID", how="right").sort_values("sortIndex")
@@ -603,7 +598,7 @@ def yearly_aggregate_farm_recharge_report(site_ofr_usage_report_df, site_info_df
     joined["Used"] = joined.apply(lambda x: sum(x["ofrUsedVolumeArray"]), axis=1)
     joined["Unused"] = joined.apply(lambda x: sum(x["ofrUnusedVolumeArray"]), axis=1)
 
-    # group by soilType + OFR crop and sum up the
+    # group by soilType + OFR crop and sum the used and unused volumes
     grouped_df = joined.groupby(["Year", "crop", "soilType"]).agg({"Used": "sum", "Unused": "sum"}).reset_index()
 
     grouped_df["variable_key"] = grouped_df["crop"] + "-" + grouped_df["soilType"]
@@ -624,7 +619,6 @@ def daily_wafr_report(year, wafr):
         wafr: dictionary of unused wafr by source
 
     Returns: pandas dataframe with columns Year, Day, and each source of unused wafr
-
     """
     df = pd.DataFrame.from_dict(wafr)
     df["Year"] = year
@@ -669,7 +663,6 @@ def bottlenecks_capacity_limitations_report(year, bottleneck_list):
         bottleneck_list: list of bottleneck objects
 
     Returns: dataframe
-
     """
     header = ["Year", "bottleneckID", "numberDaysZero"]
     rows = []
@@ -747,7 +740,7 @@ def bottlenecks_daily_conveyance_limits_by_volume(year, bottleneck_list):
 
 
 def yearly_bottleneck_capacity_logger(year, bottleneck_list):
-    """Yearly Bottleneck Capacity Logger (used as input for 14 post processing).
+    """Yearly Bottleneck Capacity Logger, published as report 13.
 
     Args:
         year: current year
@@ -792,7 +785,6 @@ def annual_recharge_by_grouping(year, sites):
         sites: list of site objects
 
     Returns: dataframe with annual_recharge_by_grouping values
-
     """
     data = {}
 
@@ -834,7 +826,6 @@ def annual_recharge_by_sw_and_gw(df_annual_recharge_by_grouping):
             (generated from annual_recharge_by_grouping function)
 
     Returns: dataframe with annual_recharge_by_sw_and_gw values
-
     """
     # group by subbasin + wafrsource
     g = df_annual_recharge_by_grouping.groupby(["Year", "subbasin", "wafrsource"])["value"].sum().reset_index()
@@ -850,7 +841,6 @@ def annual_recharge_by_district_and_gw(df_annual_recharge_by_grouping):
             (generated from annual_recharge_by_grouping function)
 
     Returns: dataframe with annual_recharge_by_district_and_gw values
-
     """
     # group by district + gw basins
     g = df_annual_recharge_by_grouping.groupby(["Year", "subbasin", "district"])["value"].sum().reset_index()
@@ -866,7 +856,6 @@ def annual_recharge_by_district_and_wafr(df_annual_recharge_by_grouping):
             (generated from annual_recharge_by_grouping function)
 
     Returns: dataframe with annual_recharge_by_district_and_wafr values
-
     """
     # group by district + gw basins
     g = df_annual_recharge_by_grouping.groupby(["Year", "wafrsource", "district"])["value"].sum().reset_index()
@@ -882,7 +871,6 @@ def daily_recharge_by_gw_basin(site_volume_report_df, site_info_df):
         site_info_df: dataframe with the site info
 
     Returns: transposed dataframe with daily recharge by GW basin
-
     """
     split = pd.DataFrame(
         site_volume_report_df["dailyRechargeVolumesArray"].to_list(),
@@ -901,8 +889,7 @@ def daily_recharge_by_gw_basin(site_volume_report_df, site_info_df):
             return v
         return [v]
 
-        # cast the strings to a list as a new attribute
-
+    # cast the strings to a list as a new attribute
     joined["subbasinList"] = joined["subbasin"].apply(subbasin_list)
 
     # divide the volumes by the number of subbasins
@@ -920,7 +907,7 @@ def daily_recharge_by_gw_basin(site_volume_report_df, site_info_df):
     joined_explode = joined.explode("subbasinList").copy()
 
     # group by year and district and sum up the volumes
-    # group by to summ by year variable key
+    # group by to sum by year variable key
     column_names = [f"DOWY {i}" for i in range(1, 367)]
 
     # group by soilType + OFR crop
@@ -932,7 +919,6 @@ def daily_recharge_by_gw_basin(site_volume_report_df, site_info_df):
     # get the list of years
     years = grouped_df["Year"].unique()
 
-    # df_pivot = pd.pivot_table(df, index='gratID', columns=)
     d1 = grouped_df.set_index(["subbasin", "Year"]).unstack()
     d1.columns = d1.columns.map(lambda x: "Year {} {}".format(*reversed(x)))
     d1.reset_index(inplace=True)
@@ -957,11 +943,16 @@ def daily_recharge_by_gw_basin(site_volume_report_df, site_info_df):
 def acres_available_and_used(year, site_list):
     """Calculates the acres available and used for different recharge types and other categories for a given year.
 
+    The two flow-through-basin columns, "FTB" and "USED FTB", hold the literal string
+    "WARN": that calculation was never ported, so they are placeholders rather than
+    acreages.
+
     Args:
         year: the current year iteration
         site_list: list of site objects
 
-    Returns: dataframe with Year, USED FTB, USED In-Lieu, USED OFR, FTB, In-Lieu, OFR, DAC, Subsidence, GSC, INBASINRET
+    Returns: dataframe with Year, USED FTB, USED In-Lieu, USED OFR, FTB, In-Lieu, OFR,
+        DAC, Subsidence, GSC and INBASINRET
     """
     # initialize variables to store acreage
     data = {
@@ -989,8 +980,8 @@ def acres_available_and_used(year, site_list):
                 if sum(site.in_lieu_used_volume) > 0:
                     data["USED In-Lieu"] += site.acres
 
-                    # report acreage used for DAC/Subsidence/GSC
-                    # site is used when any of the volumes are > 0
+            # report acreage used for DAC/Subsidence/GSC - a site counts as used
+            # when any of its volumes are greater than zero
             if sum(site.ofr_used_volume) > 0 or sum(site.in_lieu_used_volume) > 0:
                 if site.dac is not None:
                     data["DAC"] += site.acres
@@ -1000,7 +991,9 @@ def acres_available_and_used(year, site_list):
                     data["GSC"] += site.acres
                 if site.inbasinret is not None:
                     data["INBASINRET"] += site.acres
-                    # TODO flow through basins (FTB)
+
+    # TODO flow-through basins (FTB) were never ported, so the two FTB columns above
+    # stay at their "WARN" placeholder.
 
     return pd.DataFrame([data])
 
@@ -1043,7 +1036,6 @@ def yearly_wafr_report(year, wafr_dict, raw_wafr_dict):
         raw_wafr_dict: dictionary of total WAFR by source
 
     Returns: dataframe of unused and total WAFR by source
-
     """
     # sum the wafr values (list) by source
     sum_wafr = {k: sum(v) for k, v in wafr_dict.items()}
@@ -1070,10 +1062,9 @@ def mlrp_report(site_info_df):
     """Report the list of gratIDs that got converted to MLRP.
 
     Args:
-        site_info_df: dataframe of site attribution, from summary_operations.get_site_info
+        site_info_df: dataframe of site attribution, from get_site_info
 
     Returns: dataframe of the gratIDs that got converted to MLRP
-
     """
     # filter the dataframe to only include rows where the crop type is MLRP
     df = site_info_df[site_info_df["crop"] == "MLRP"]
@@ -1091,7 +1082,6 @@ def daily_water_transfer_by_sustain_zone_report(year, site_list, transfer_list):
         transfer_list: list of zones to include in the report
 
     Returns: dataframe with daily water transfer by sustainability zone report
-
     """
     # initialize variables to store acreage
     data = {}
@@ -1117,7 +1107,7 @@ def daily_water_transfer_by_sustain_zone_report(year, site_list, transfer_list):
                     volume_array_daily
                 )
 
-                # pandas operation to turn the data into a dataframe
+    # pandas operation to turn the data into a dataframe
     df = pd.DataFrame(data)
 
     # convert index to a field called Day
@@ -1155,7 +1145,6 @@ def total_recharge_by_sustainability_zone_report(year, site_list):
         site_list: list of sites
 
     Returns: dataframe of total recharge by sustainability zone
-
     """
     # initialize variables to store acre-feet of total WAFR applied as recharge
     data = {}
@@ -1183,7 +1172,7 @@ def total_recharge_by_sustainability_zone_report(year, site_list):
             else:
                 vol = 0
 
-                # add the daily volume to the data
+            # add the daily volume to the data
             data[zone] = data.get(zone, 0) + vol
         except (AttributeError, TypeError):
             logger.warning(
@@ -1192,65 +1181,11 @@ def total_recharge_by_sustainability_zone_report(year, site_list):
                 exc_info=True,
             )
 
-            # pandas operation to turn the data into a dataframe
+    # pandas operation to turn the data into a dataframe
     df = pd.DataFrame(data.items(), columns=["sustainabilityZone", "acreFeet"])
     df["Year"] = year
 
     # rearrange the columns
     order_cols = ["Year", "sustainabilityZone", "acreFeet"]
-
-    return df[order_cols]
-
-
-def total_recharge_by_district_report(year, site_list):
-    """Report the total Recharge by district.
-
-    Args:
-        year: current year
-        site_list: list of sites
-
-    Returns: dataframe of total recharge by district
-
-    """
-    # initialize variables to store acre-feet of total WAFR applied as recharge
-    data = {}
-
-    for site in site_list:
-        # build unique key
-        if site.district is None or site.district == "<Null>":
-            continue
-        value = site.district
-        try:
-            # if it's numeric (int, float, or numeric string like "1.0")
-            zone = str(int(float(value)))
-        except (ValueError, TypeError):
-            # fallback: just make sure it's a string
-            zone = str(value).strip()
-        try:
-            # volume is an array of 366 days, need to sum the values per day
-            if site.recharge_type in ("Basin", "Canal"):
-                vol = sum(site.daily_recharge_volumes)
-
-            elif site.recharge_type == "OFR":
-                # volume is an array of 366 days, need to sum the values per day
-                vol = sum(site.ofr_daily_recharge_volumes) + sum(site.in_lieu_daily_recharge_volumes)
-            else:
-                vol = 0
-
-                # add the daily volume to the data
-            data[zone] = data.get(zone, 0) + vol
-        except (AttributeError, TypeError):
-            logger.warning(
-                "Skipping site %s: could not total its recharge volumes",
-                getattr(site, "grat_id", "<unknown>"),
-                exc_info=True,
-            )
-
-            # pandas operation to turn the data into a dataframe
-    df = pd.DataFrame(data.items(), columns=["district", "acreFeet"])
-    df["Year"] = year
-
-    # rearrange the columns
-    order_cols = ["Year", "district", "acreFeet"]
 
     return df[order_cols]

@@ -1,4 +1,14 @@
-"""Selects which reports to generate and saves them."""
+"""Builds the reports a caller asked for, and writes them.
+
+Reports are named, not numbered - `catalog` lists them. `report_picker` runs once per
+water year and returns that year's dataframes; `post_process` runs afterwards and builds
+the reports that need every year at once, returning the frontend series.
+
+Each shared intermediate is guarded on the reports that actually need it, so a run only
+pays for what it asked for. The intermediates go to working files alongside the reports
+and are deleted once the run finishes, which keeps memory flat across a long run - a
+default span is 99 water years.
+"""
 
 import logging
 import os

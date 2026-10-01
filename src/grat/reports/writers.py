@@ -55,16 +55,14 @@ REPORT_FILES: dict[str, ReportFile] = {
         "21_Yearly Water Transfer by Sustainability Zone.csv", append=False
     ),
     "fields_repurposed": ReportFile("22_Fields Repurposed.csv", append=False),
-    # Intermediates. Written per year, read back after the run, then deleted.
+    # Working files. Written per year, read back by `selector.post_process` once the
+    # run finishes, and then deleted - they never reach the zip.
     "site_info": ReportFile("temp_siteInfo.csv", append=False),
-    # Intermediates. These are appended to across the years, read back by
-    # `selector.post_process`, and deleted once the run finishes.
     "annual_recharge_by_grouping": ReportFile("annualRechargeByGrouping.csv"),
     "monthly_recharge_by_site_temp": ReportFile("temp_Monthly Recharge by Site.csv"),
     "yearly_wafr_applied_by_site": ReportFile("temp_Yearly WAFR Applied by Site.csv"),
     "unused_and_orig_wafr": ReportFile("temp_unused_and_orig_wafr_by_source.csv"),
     "total_by_sustainability_zone": ReportFile("temp_totalBySustainabilityZone.csv"),
-    "total_by_district": ReportFile("temp_totalByDistrict.csv"),
 }
 
 
