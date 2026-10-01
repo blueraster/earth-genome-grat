@@ -76,11 +76,16 @@ def construct_output_folder_name(path_to_folder: str):
 
     Returns: path to the result folder that was just created
     """
-    t = datetime.datetime.now().strftime("%Y%m%d%H%M%S")  # current timestamp
-    folder_name = os.path.join(path_to_folder, f"results_{t}")
-    if not os.path.exists(folder_name):
-        os.mkdir(folder_name)
-    return folder_name
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    suffix = 0
+    while True:
+        name = f"results_{timestamp}" if suffix == 0 else f"results_{timestamp}_{suffix}"
+        folder_name = os.path.join(path_to_folder, name)
+        try:
+            os.mkdir(folder_name)
+            return folder_name
+        except FileExistsError:
+            suffix += 1
 
 
 def zip_output_folder(result_folder_path, custom_name=None):
