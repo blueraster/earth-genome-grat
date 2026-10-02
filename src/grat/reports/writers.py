@@ -1,9 +1,4 @@
-"""Writes report dataframes to csv files, and manages the output folder.
-
-This module is the only part of `grat.reports` that touches the filesystem.
-Everything in `grat.reports.builders` returns a dataframe and writes nothing, so a
-caller who wants the numbers but not the csv files can ignore this module entirely.
-"""
+"""Writes report dataframes to csv files, and manages the output folder."""
 
 import datetime
 import logging
@@ -29,9 +24,7 @@ class ReportFile(NamedTuple):
     append: bool = True
 
 
-# Every report filename in one place. The "NN_" prefixes, the spaces and the
-# camelCase in the temp files are the output contract - downstream consumers read
-# these exact names, so they are deliberately not tidied.
+# Every default report filename defined here
 REPORT_FILES: dict[str, ReportFile] = {
     "annual_summary_recharge": ReportFile("02_Annual Summary Recharge and WAFR.csv"),
     "daily_summary_recharge": ReportFile("03_Daily Summary Recharge.csv"),
@@ -151,9 +144,6 @@ def write_report(df, output_folder, key):
 
 def read_report(output_folder, key, year=None, dtype=None):
     """Reads a report back from the folder it was written into.
-
-    This is how a caller inspects a report after a run without the library having held
-    anything in memory: the csv was written once, so read it back by name.
 
     Args:
         output_folder: the run's output folder.

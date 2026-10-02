@@ -1,18 +1,9 @@
-"""What reports exist, and what each one is built from.
+"""Report catalog.
 
-Reports are asked for by name. The names are the keys of `writers.REPORT_FILES`, so
-the filename for each is looked up there and the numeric prefixes (`02_`, `03_`, ...)
-stay where they belong - in the filenames, which are the output contract.
-
-The sets below say which reports share an expensive intermediate. `selector` guards
-each intermediate on an intersection, so a run only pays for what it asked for.
+Report names are the keys of `writers.REPORT_FILES`
 """
 
-# ---------------------------------------------------------------------------
-# What a caller can ask for
-# ---------------------------------------------------------------------------
-
-# The 20 published csv reports. Every name here is a key of writers.REPORT_FILES.
+# Every name here is a key of writers.REPORT_FILES.
 CSV_REPORTS = frozenset(
     {
         "annual_summary_recharge",
@@ -50,10 +41,6 @@ FRONTEND_SERIES = frozenset(
 )
 
 ALL_REPORTS = CSV_REPORTS | FRONTEND_SERIES
-
-# ---------------------------------------------------------------------------
-# Which reports share which intermediate
-# ---------------------------------------------------------------------------
 
 # Site attribution. Needed in memory by the per-site reports, and read back after the
 # run by the monthly pivot and the MLRP report.
@@ -101,10 +88,7 @@ NEEDS_UNUSED_WAFR = frozenset({"unused_wafr"})
 NEEDS_WAFR_BY_SITE = frozenset({"max_wafr_per_site"})
 NEEDS_TOTAL_BY_ZONE = frozenset({"recharge_by_sustainability_zone"})
 
-# ---------------------------------------------------------------------------
 # How and when each report is produced
-# ---------------------------------------------------------------------------
-
 # Built once, after every water year has run.
 POST_RUN = (
     frozenset(

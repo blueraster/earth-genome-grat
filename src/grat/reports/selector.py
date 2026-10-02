@@ -1,14 +1,4 @@
-"""Builds the reports a caller asked for, and writes them.
-
-Reports are named, not numbered - `catalog` lists them. `report_picker` runs once per
-water year and returns that year's dataframes; `post_process` runs afterwards and builds
-the reports that need every year at once, returning the frontend series.
-
-Each shared intermediate is guarded on the reports that actually need it, so a run only
-pays for what it asked for. The intermediates go to working files alongside the reports
-and are deleted once the run finishes, which keeps memory flat across a long run - a
-default span is 99 water years.
-"""
+"""Builds the reports a caller asked for, and writes them."""
 
 import logging
 import os
@@ -54,8 +44,7 @@ from grat.reports.writers import (
 
 logger = logging.getLogger(__name__)
 
-# Working files: everything writers knows about that is not a published report. These
-# are written per year, read back once the run finishes, and then deleted.
+# Working files. These are written per year, read back once the run finishes, and then deleted.
 INTERMEDIATE_FILES = frozenset(REPORT_FILES) - catalog.CSV_REPORTS
 
 
@@ -71,20 +60,16 @@ def report_picker(
 ):
     """Generates the reports for a single year of results.
 
-    Each intermediate is built only if something asked for it, so a run that wants one
-    cheap report does not pay for a full site scan.
-
     Args:
         names: report names to generate. Post-run names are accepted and used only to
             decide which intermediates this year must contribute to.
-        output_folder: folder to write into, or None to build the dataframes and write
-            nothing - the interactive path.
+        output_folder: folder to write into, or None to build the dataframes
         year: the current year
         sites: list of the sites objects
         year_raw_wafr: the unmodified WAFR for this year
         wafr: the end wafr after water has been applied to the sites
         bottlenecks: list of bottlenecks, or None if the run has none
-        transfer_list: list of sustainability zones that can receive water from transfers
+        transfer_list: list of zones that can receive water from transfers
 
     Returns: dict of report name to dataframe, for the reports produced this year
 
@@ -115,8 +100,7 @@ def report_picker(
 
     produced = {}
 
-    # Site attribution is year-invariant, but the reports that read it back after the
-    # run need it on disk, so it is rewritten each year.
+    # Site attribution
     if wanted & catalog.NEEDS_SITE_INFO:
         site_info_df = get_site_info(sites)
         if output_folder is not None:
@@ -152,7 +136,7 @@ def report_picker(
             )
 
         if wanted & catalog.NEEDS_MONTHLY:
-            # accumulated per year and pivoted after the run, so it is never a report itself
+            # accumulated per year and pivoted after the run
             monthly_df = monthly_recharge_by_site_report(site_volume_report_df)
             if output_folder is not None:
                 write_report(monthly_df, output_folder, "monthly_recharge_by_site_temp")
@@ -199,7 +183,7 @@ def report_picker(
             "daily_water_transfer_by_sustain_zone_report",
         )
 
-    # Intermediates for the frontend series, each built only if its series was asked for.
+    # Intermediates for the frontend series.
     if wanted & catalog.NEEDS_UNUSED_WAFR and output_folder is not None:
         write_report(yearly_wafr_report(year, wafr, year_raw_wafr), output_folder, "unused_and_orig_wafr")
 
@@ -263,11 +247,8 @@ def post_process(names, output_folder, produced=None):
 
     Args:
         names: report names that were selected.
-        output_folder: path to the output folder report_picker wrote into.
-        produced: report names that report_picker actually produced. A report whose
-            input was skipped - because the run had no bottlenecks or no transfer list -
-            is skipped here too rather than failing on a missing file. Defaults to
-            everything requested.
+        output_folder: path to the output folder.
+        produced: report names that report_picker  produced.
 
     Returns: dict of report name to result, holding the frontend series as json-ready
         dicts and the post-run csv reports as dataframes
@@ -277,8 +258,7 @@ def post_process(names, output_folder, produced=None):
     """
     wanted = catalog.expand(names)
     if produced is not None:
-        # A per-year report can be dropped by a missing model input; when that happens the
-        # post-run report built from it has nothing to read, so it goes too.
+        # report can be dropped by a missing model input
         guarded = (catalog.NEEDS_TRANSFERS | catalog.NEEDS_BOTTLENECKS) & catalog.PER_YEAR
         missing = guarded - set(produced)
         wanted -= missing
@@ -325,7 +305,7 @@ def post_process(names, output_folder, produced=None):
         )
         write_report(results[name], output_folder, name)
 
-    # The frontend series. Each reads back the intermediate its consumer asked for.
+    # the frontend series
     for name, source, build in (
         ("yearly_recharge_volumes", "annual_summary_recharge", post_process_viz_recharge_by_type),
         ("unused_wafr", "unused_and_orig_wafr", post_process_unused_wafr),
@@ -440,6 +420,7 @@ def post_process_max_per_site(df):
     return max_used_volume_dict
 
 
+# TODO how to enable ability to post process by a variable for when there isn't sustainability zones defined?
 def post_process_recharge_by_sustain_zone(df):
     """Post process to get the WAFR by sustainability zone for the whole run.
 

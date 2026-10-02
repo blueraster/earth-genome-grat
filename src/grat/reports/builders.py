@@ -10,9 +10,7 @@ from grat.reports.converters import is_leap_year, sum_array_by_month
 
 logger = logging.getLogger(__name__)
 
-# Output column name -> attribute on the site object. The column names are part of the
-# report output contract (report_generator and selector read them by these spellings),
-# so they keep their original casing while the lookups follow the model's attributes.
+# Output column name -> attribute on the site object.
 SITE_ATTRIBUTES = {
     "rechargeType": "recharge_type",
     "acres": "acres",
