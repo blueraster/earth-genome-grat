@@ -745,7 +745,7 @@ def bottlenecks_daily_conveyance_limits_by_volume(year, bottleneck_list):
 
 
 def yearly_bottleneck_capacity_logger(year, bottleneck_list):
-    """Yearly Bottleneck Capacity Logger (used as input for 14 post processing).
+    """Yearly Bottleneck Capacity Logger.
 
     Args:
         year: current year
