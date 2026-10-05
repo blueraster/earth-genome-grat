@@ -11,6 +11,7 @@ authors = [
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=2.2.6",
+    "pandas>=2.3.3",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -27,7 +28,6 @@ classifiers = [
 Homepage = "https://github.com/blueraster/earth-genome-grat"
 Repository = "https://github.com/blueraster/earth-genome-grat"
 Issues = "https://github.com/blueraster/earth-genome-grat/issues"
-Changelog = "https://github.com/blueraster/earth-genome-grat/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
