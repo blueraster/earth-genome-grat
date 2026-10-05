@@ -1,7 +1,7 @@
 [project]
 name = "grat"
-version = "0.1.0"
-description = "Add your description here"
+dynamic = ["version"]
+description = "Groundwater Recharge Assessment Tool"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -30,7 +30,7 @@ Repository = "https://github.com/blueraster/earth-genome-grat"
 Issues = "https://github.com/blueraster/earth-genome-grat/issues"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
@@ -57,6 +57,12 @@ convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+fallback_version = "0.0.0"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/grat"]
