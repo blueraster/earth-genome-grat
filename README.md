@@ -4,7 +4,9 @@
 [![PyPI](https://img.shields.io/pypi/v/grat.svg)](https://pypi.org/project/grat/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-One-line description of what `grat` does.
+GRAT is a groundwater recharge assessment tool. It models how water available for
+recharge is allocated, day by day across a span of water years, to canals, basins and
+farm fields, and reports the resulting groundwater recharge.
 
 ## Installation
 
@@ -14,7 +16,7 @@ pip install grat
 
 ## Usage
 
-Run the model and produce reports in one call:
+Run the model and produce reports:
 
 ```python
 from grat import read_report, run_grat
@@ -56,6 +58,13 @@ reports = report_picker(
 reports["annual_summary_recharge"]
 ```
 
+## Documentation
+
+- [docs/model.md](docs/model.md) — `grat.model`: sites, allocation order, bottlenecks,
+  transfers, and running the year loop yourself.
+- [docs/reports.md](docs/reports.md) — `grat.reports`: the report catalog, what each
+  report contains, and how to read one back.
+
 ## Development
 
 This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
@@ -66,10 +75,6 @@ uv run pytest            # run tests
 uv run ruff check .      # lint
 uv run ruff format .     # format
 ```
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
