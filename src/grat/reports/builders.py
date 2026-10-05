@@ -611,7 +611,7 @@ def yearly_aggregate_farm_recharge_report(site_ofr_usage_report_df, site_info_df
     # flatten multi-index
     pivoted_df.columns = [f"{col[1]}-{col[0]}" for col in pivoted_df.columns]
 
-    return pivoted_df
+    return pivoted_df.reset_index()
 
 
 def daily_wafr_report(year, wafr):
