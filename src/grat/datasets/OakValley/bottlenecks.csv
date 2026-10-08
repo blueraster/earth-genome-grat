@@ -1,0 +1,20 @@
+﻿bid,name,capacity_cfs,capacity_irr_cfs,wafrsource
+0,Turlock Main Canal,180,97,Folsom Dam
+1,Canal 1,24,14,"Folsom Dam,Yolo Creek"
+2,Canal 2,35,20,Folsom Dam
+3,Canal 3,24,13,Folsom Dam
+4,Canal 4,18,9,Folsom Dam
+5,Canal 5,17,8,Folsom Dam
+6,Lateral A,9,6,Folsom Dam
+7,Lateral B,9,4,Folsom Dam
+8,Lateral C,6,3,Folsom Dam
+9,Lateral D,17,11,Folsom Dam
+10,Lateral E,17,9,Folsom Dam
+11,Lateral F,14,10,Folsom Dam
+12,Lateral G,10,4,Folsom Dam
+13,Lateral H,11,5,Folsom Dam
+14,Lateral I,15,7,Folsom Dam
+15,Lateral J,14,10,Folsom Dam
+16,Lateral K,14,7,Folsom Dam
+17,Lateral L,13,6,Folsom Dam
+18,Lateral M,6,4,Folsom Dam
