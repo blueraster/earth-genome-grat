@@ -38,37 +38,38 @@ CCC_CROPS = [
 
 
 class TestGetWAFR:
-    @classmethod
-    def setup_class(cls):
+    @pytest.fixture(scope="class")
+    def d(self, oak_valley):
         # avoid loading the dataset for each test
-        cls.d = get_wafr.load_wafr_csv(DATA_DIR / "WAFR_Input_Example.csv", offset_years=100)
+        return get_wafr.load_wafr(oak_valley / "WAFR_optimistic.csv")
 
-    def test_get_wafr_type(self):
-        assert isinstance(self.d, dict)
+    def test_get_wafr_type(self, d):
+        assert isinstance(d, dict)
 
-    def test_get_wafr_keys(self):
-        assert list(self.d.keys()) == list(range(2000, 2100))
+    def test_get_wafr_keys(self, d):
+        assert list(d.keys()) == list(range(1969, 2019))
 
-    def test_get_wafr_single_year_keys(self):
-        source_keys = list(self.d[2098].keys())
-        expected = [
-            "Merced River",
-            "Upper Canal Creek",
-            "Upper Canal Livingston",
-            "Fahrens Creek",
-            "Bear Creek",
-            "Mariposa Creek",
-        ]
-        assert sorted(source_keys) == sorted(expected)
+    def test_get_wafr_offset_years(self, oak_valley):
+        d = get_wafr.load_wafr(oak_valley / "WAFR_pessimistic.csv", offset_years=100)
+        assert list(d.keys()) == list(range(2069, 2119))
 
-    def test_get_wafr_length_yearly_array(self):
-        assert len(self.d[2098]["Merced River"]) == 365
+    def test_get_wafr_single_year_keys(self, d):
+        assert sorted(d[2017].keys()) == ["Folsom Lake", "Yolo Creek"]
 
-    def test_get_wafr_length_yearly_array_max_min(self):
-        year_array = self.d[2098]["Merced River"]
+    def test_get_wafr_length_yearly_array(self, d):
+        assert len(d[2017]["Folsom Lake"]) == 365
+        assert len(d[1972]["Folsom Lake"]) == 366  # leap year
+
+    def test_get_wafr_first_value(self, d):
+        # first day with water in the sample is day 105 of water year 1969
+        assert d[1969]["Folsom Lake"][103] == 0
+        assert d[1969]["Folsom Lake"][104] == 416.509
+
+    def test_get_wafr_length_yearly_array_max_min(self, d):
+        year_array = d[2017]["Folsom Lake"]
         assert min(year_array) == 0
-        assert max(year_array) == 3768.595041
-        assert sum(year_array) / len(year_array) == pytest.approx(159.7817685, abs=1e-6)
+        assert max(year_array) == 984.313
+        assert sum(year_array) / len(year_array) == pytest.approx(78.42520821917809, abs=1e-6)
 
 
 class TestGetPrecip:
