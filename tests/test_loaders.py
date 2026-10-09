@@ -174,22 +174,37 @@ class TestGetCanals:
 
 
 class TestGetBottlenecks:
-    def setup_method(self) -> None:
-        self.bottlenecks = get_bottlenecks.load_bottlenecks(DATA_DIR / "bottlenecks.csv")
-        self.goodwin = next(b for b in self.bottlenecks if b.name == "Goodwin Tunnel")
+    @pytest.fixture(autouse=True)
+    def setup(self, oak_valley):
+        self.bottlenecks = get_bottlenecks.load_bottlenecks(oak_valley / "bottlenecks.csv")
+        self.turlock = next(b for b in self.bottlenecks if b.name == "Turlock Main Canal")
 
     def test_get_bn(self):
-        assert len(self.bottlenecks) == 11
+        assert len(self.bottlenecks) == 19
+
+    def test_ids(self):
+        assert [b.bottleneck_id for b in self.bottlenecks] == list(range(19))
 
     def test_capacity(self):
-        assert self.goodwin.capacity == 652.407  # 329 cfs x 1.983 acre-feet per day
-        assert self.goodwin.capacity_irrigation == 3.966  # 2 cfs x 1.983 acre-feet per day
+        assert self.turlock.capacity == pytest.approx(356.94)  # 180 cfs x 1.983 acre-feet per day
+        assert self.turlock.capacity_irrigation == pytest.approx(192.351)  # 97 cfs x 1.983 acre-feet per day
+
+    def test_wafr_sources(self):
+        canal_1 = next(b for b in self.bottlenecks if b.name == "Canal 1")
+        assert self.turlock.wafr_sources == ["Folsom Lake"]
+        assert canal_1.wafr_sources == ["Folsom Lake", "Yolo Creek"]
+
+    def test_wafr_sources_match_wafr(self, oak_valley):
+        # every bottleneck source must be a source in the WAFR sample
+        wafr = get_wafr.load_wafr(oak_valley / "WAFR_optimistic.csv")
+        wafr_sources = set(wafr[1969].keys())
+        assert {s for b in self.bottlenecks for s in b.wafr_sources} <= wafr_sources
 
     def test_available_throughput_array(self):
-        assert self.goodwin.available_throughput[0] == 3.966
-        assert self.goodwin.available_throughput[30] == 3.966
-        assert self.goodwin.available_throughput[31] == 652.407
-        assert self.goodwin.available_throughput[182] == 3.966
+        assert self.turlock.available_throughput[0] == pytest.approx(192.351)
+        assert self.turlock.available_throughput[30] == pytest.approx(192.351)
+        assert self.turlock.available_throughput[31] == pytest.approx(356.94)
+        assert self.turlock.available_throughput[182] == pytest.approx(192.351)
 
 
 class TestCCCMultiplier:
