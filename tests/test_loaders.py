@@ -11,24 +11,16 @@ from grat.loaders import (
 CCC_CROPS = [
     "Alfalfa",
     "Almonds",
-    "Apples",
-    "Cherries",
-    "Citrus",
-    "Corn",
     "Cotton",
+    "Fallow",
     "Grapes",
-    "Melons",
-    "Olives",
-    "Onions",
     "Pasture",
-    "Peaches",
     "Pistachios",
-    "Plums",
-    "Rice",
+    "ShorebirdApr",
+    "ShorebirdMar",
     "Sweet Potato",
     "Tomatoes",
     "Walnuts",
-    "Wheat",
 ]
 
 
@@ -100,40 +92,38 @@ class TestHelpers:
 
 
 class TestGetCCC:
-    def setup_method(self) -> None:
-        self.file = DATA_DIR / "inlieu_CCC.csv"
+    @pytest.fixture(autouse=True)
+    def setup(self, oak_valley):
+        self.ccc = get_ccc.get_crop_calendar(oak_valley / "CCC_ofr.csv")
 
     def test_ccc_valid_crops(self):
-        ccc = get_ccc.get_crop_calendar(self.file)
-        assert get_ccc.ccc_valid_crops(ccc) == CCC_CROPS
+        assert get_ccc.ccc_valid_crops(self.ccc) == CCC_CROPS
 
     def test_ccc_valid_soil_types(self):
-        ccc = get_ccc.get_crop_calendar(self.file)
-        soil_types = get_ccc.ccc_valid_soil_types(ccc)
+        soil_types = get_ccc.ccc_valid_soil_types(self.ccc)
         expected = ["Very Poor", "Poor", "Moderately Poor", "Moderately Good", "Good", "Excellent"]
         assert sorted(soil_types) == sorted(expected)
 
-    def test_get_ccc_value(self):
-        ccc = get_ccc.get_crop_calendar(self.file)
-        assert ccc["Alfalfa"]["Poor"][5] == pytest.approx(0.008, abs=1e-4)
-        assert len(ccc["Alfalfa"]["Poor"]) == 366
+    def test_shorebird_soil_types(self):
+        # shorebird crops only have 4 of the 6 SAGBI types in the sample
+        assert len(self.ccc["ShorebirdApr"]) == 4
+        assert len(self.ccc["ShorebirdMar"]) == 4
 
-    def test_get_il_keys(self):
-        ccc = get_ccc.get_crop_calendar(self.file)
-        assert list(ccc.keys()) == CCC_CROPS
+    def test_get_ccc_value(self):
+        # first non-zero day for Alfalfa on Poor soil is dowy95 (index 94)
+        assert self.ccc["Alfalfa"]["Poor"][93] == 0
+        assert self.ccc["Alfalfa"]["Poor"][94] == pytest.approx(0.5)
+        assert self.ccc["Alfalfa"]["Poor"][95] == pytest.approx(0.43)
+        assert len(self.ccc["Alfalfa"]["Poor"]) == 366
 
     def test_add_mlrp_fallow_copied_to_mlrp(self):
-        ccc = get_ccc.get_crop_calendar(self.file)
-        ccc["Fallow"] = {"A": "test", "B": "VALUES"}
-        mlrp = get_ccc.add_mlrp_to_ccc(ccc)
-
-        assert mlrp["MLRP"]["A"] == "test"
-        assert mlrp["MLRP"]["B"] == "VALUES"
+        mlrp = get_ccc.add_mlrp_to_ccc(self.ccc)
+        assert mlrp["MLRP"] == mlrp["Fallow"]
 
     def test_add_mlrp_exception_if_no_fallow(self):
-        ccc = get_ccc.get_crop_calendar(self.file)
-        with pytest.raises(KeyError, match="Fallow crop type not found"):  # no fallow in ccc
-            get_ccc.add_mlrp_to_ccc(ccc)
+        del self.ccc["Fallow"]
+        with pytest.raises(KeyError, match="Fallow crop type not found"):
+            get_ccc.add_mlrp_to_ccc(self.ccc)
 
 
 class TestGetCanals:
