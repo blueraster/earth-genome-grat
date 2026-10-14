@@ -107,7 +107,7 @@ def get_il_crop_calendar(ccc_file):
     return _read_daily_calendar(ccc_file, crop_column="crop", key_column="region", key_as_str=True)
 
 
-def load_in_lieu_climate_multiplier(path_to_ratio_file: str, scenario: str = "T0P100") -> pd.DataFrame:
+def load_in_lieu_climate_multiplier(path_to_ratio_file: str, scenario: str = "T0") -> pd.DataFrame:
     """Load the in-lieu climate multiplier file.
 
     Args:

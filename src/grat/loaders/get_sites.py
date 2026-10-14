@@ -109,9 +109,15 @@ def build_sites(sites_dictionary_list):
     sites = []
     for p in sites_dictionary_list:
         p = dict(p)  # leave the caller's dictionary unchanged
+        region_number = p.get("region_number")
+        if isinstance(region_number, Number) and region_number % 1 == 0:
+            p["region_number"] = str(int(region_number))
 
         # split multiple wafr sources string into list
-        p["wafr_sources_primary"] = parse_compatible_sources(p.get("wafr_sources_primary"))
+        if p.get("wafr_sources_primary") is None and "wafr_sources" in p:
+            p["wafr_sources_primary"] = p["wafr_sources"]
+        else:
+            p["wafr_sources_primary"] = parse_compatible_sources(p.get("wafr_sources_primary"))
         p["wafr_sources_secondary"] = parse_compatible_sources(p.get("wafr_sources_secondary"))
 
         # split bottleneck id string into list
@@ -148,7 +154,7 @@ def drop_invalid_sites(sites, valid_crop_list, valid_il_crop_list, valid_soil_ty
     valid_il_crop_list_with_none = [*valid_il_crop_list, None]
 
     for site in sites:
-        if site.recharge_type == "OFR" and site.soil_type not in valid_soil_types:
+        if site.recharge_type == "OFR" and site.crop is not None and site.soil_type not in valid_soil_types:
             logger.debug("Removing site: %s. Invalid soil type: %s", site.grat_id, site.soil_type)
         elif site.recharge_type == "OFR" and site.crop not in valid_crop_list_with_none:
             logger.debug("Removing site: %s. Invalid crop type: %s", site.grat_id, site.crop)
