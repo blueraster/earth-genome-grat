@@ -114,7 +114,7 @@ def load_in_lieu_climate_multiplier(path_to_ratio_file: str, scenario: str = "T0
         scenario: name of the scenario to load
 
     Returns:
-        dataframe with columns: Crop, Region, MonthlyMultiplier
+        dataframe with columns: Crop, Region, MonthlyMultiplier (12 values, January first)
 
     Raises:
         ValueError: the scenario is not a column in the multiplier file.
@@ -128,8 +128,8 @@ def load_in_lieu_climate_multiplier(path_to_ratio_file: str, scenario: str = "T0
     if scenario not in column_names:
         raise ValueError(f"Scenario {scenario} not found in the in-lieu multiplier file")
 
-    # TODO determine if the month column is month of the water year or month of the calendar year
-    # sort by month in order to get the scenario multipliers in the correct order
+    # the month column is the calendar month, so sorting puts the multipliers January first,
+    # the order multiply_by_monthly_factor expects
     df = df.sort_values(by=["Month"])[["Crop", "Region", "Month", scenario]]
 
     # group by rows to cast the month and scenario columns as lists

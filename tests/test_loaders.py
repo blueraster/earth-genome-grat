@@ -290,6 +290,36 @@ class TestLoadSites:
         with pytest.raises(ValueError, match="where is not supported for csv input"):
             get_sites.load_sites(tmp_path / "sites.csv", where="1=1")
 
+    def test_blank_strings_are_none(self, tmp_path):
+        csv = tmp_path / "sites.csv"
+        csv.write_text('GRATID,CROP,R_TYPE\n1," ",OFR\n2,"   ",OFR\n')
+        sites = get_sites.load_sites(csv)
+        assert sites[0]["CROP"] is None
+        assert sites[1]["CROP"] is None
+
+
+class TestBuildSites:
+    def test_parse_compatible_sources(self):
+        assert get_sites.parse_compatible_sources("Folsom Lake, Yolo Creek") == ["Folsom Lake", "Yolo Creek"]
+        assert get_sites.parse_compatible_sources("Folsom Lake,") == ["Folsom Lake"]
+        assert get_sites.parse_compatible_sources("") == []
+        assert get_sites.parse_compatible_sources(None) == []
+
+    def test_parse_bottleneck_ids(self):
+        assert get_sites.parse_bottleneck_ids("1, 2") == [1, 2]
+        assert get_sites.parse_bottleneck_ids("") is None
+        assert get_sites.parse_bottleneck_ids(None) is None
+
+    def test_parse_bottleneck_ids_number(self):
+        # a field with one id per row is read as a number
+        assert get_sites.parse_bottleneck_ids(62) == [62]
+        assert get_sites.parse_bottleneck_ids(62.0) == [62]
+
+    def test_build_sites_without_wafr_sources(self):
+        sites = get_sites.build_sites([{"grat_id": 1, "recharge_type": "Basin"}])
+        assert len(sites) == 1
+        assert sites[0].wafr_sources == []
+
 
 class TestCCCMultiplier:
     def setup_method(self) -> None:
@@ -1075,3 +1105,8 @@ class TestUnpackBottlenecks:
         assert bottlenecks[1].capacity == 500 * 1.983
         assert bottlenecks[0].capacity_irrigation == 135 * 1.983
         assert bottlenecks[1].capacity_irrigation == 287 * 1.983
+
+    def test_unpack_bottlenecks_empty_wafrsource(self):
+        self.bottleneck_info[0]["wafrsource"] = float("nan")  # empty csv cell
+        bottlenecks = get_bottlenecks.unpack_bottlenecks(self.bottleneck_info)
+        assert bottlenecks[0].wafr_sources == []

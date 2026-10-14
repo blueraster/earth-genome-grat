@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from grat.loaders.helpers import split_multivalues
 from grat.model.bottlenecks import Bottleneck
 from grat.model.constants import CFS_TO_ACRE_FEET_PER_DAY, DEFAULT_IRRIGATION_DAYS
 
@@ -16,12 +17,15 @@ def bottleneck_from_row(row, irrigation_days):
     Returns:
         bottleneck object
     """
+    # an empty csv cell is read as NaN
+    wafrsource = row["wafrsource"] if isinstance(row["wafrsource"], str) else None
+
     return Bottleneck(
         bottleneck_id=int(row["bid"]),
         name=row["name"],
         capacity=row["capacity_cfs"] * CFS_TO_ACRE_FEET_PER_DAY,
         capacity_irrigation=row["capacity_irr_cfs"] * CFS_TO_ACRE_FEET_PER_DAY,
-        wafr_sources=[s.strip() for s in row["wafrsource"].split(",")],
+        wafr_sources=split_multivalues(wafrsource),
         irrigation_days=irrigation_days,
     )
 

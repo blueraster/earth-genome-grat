@@ -1,6 +1,7 @@
 """Constructs site classes from the attributes of a sites layer (shapefile, geodatabase, geopackage or csv)."""
 
 import logging
+from numbers import Number
 from pathlib import Path
 
 import pandas as pd
@@ -61,7 +62,8 @@ def load_sites(path, layer=None, where=None, ignore_fields=None, attribute_renam
 
     sites = []
     for row in df.to_dict(orient="records"):
-        values = {k: None if v == " " else v for k, v in row.items()}  # treat empty strings as None
+        # treat empty or whitespace-only strings as None
+        values = {k: None if isinstance(v, str) and not v.strip() else v for k, v in row.items()}
         sites.append(helpers.rename_dictionary_keys(values, attribute_renamer))
 
     return sites
@@ -76,23 +78,23 @@ def parse_compatible_sources(compatible_sources):
     Returns:
         list of WAFR source names
     """
-    if compatible_sources is None:
-        return []
-    return [x.strip() for x in compatible_sources.split(",")]
+    return helpers.split_multivalues(compatible_sources)
 
 
 def parse_bottleneck_ids(bottleneck_id_string):
     """Split string (comma-delimited) into a list of integers.
 
     Args:
-        bottleneck_id_string: string
+        bottleneck_id_string: string, or a number when the field holds a single id
 
     Returns:
         list of bottleneck ids, or None when the string is empty
     """
-    if bottleneck_id_string is None or bottleneck_id_string.strip() == "":
+    if bottleneck_id_string is None:
         return None
-    return [int(x.strip()) for x in bottleneck_id_string.split(",")]
+    if isinstance(bottleneck_id_string, Number):
+        return [int(bottleneck_id_string)]
+    return [int(x) for x in helpers.split_multivalues(bottleneck_id_string)] or None
 
 
 def build_sites(sites_dictionary_list):
@@ -107,8 +109,8 @@ def build_sites(sites_dictionary_list):
     sites = []
     for p in sites_dictionary_list:
         # split multiple wafr sources string into list
-        p["wafr_sources_primary"] = parse_compatible_sources(p.get("wafr_sources_primary", []))
-        p["wafr_sources_secondary"] = parse_compatible_sources(p.get("wafr_sources_secondary", []))
+        p["wafr_sources_primary"] = parse_compatible_sources(p.get("wafr_sources_primary"))
+        p["wafr_sources_secondary"] = parse_compatible_sources(p.get("wafr_sources_secondary"))
 
         # split bottleneck id string into list
         p["bottleneck_ids"] = parse_bottleneck_ids(p.get("bottleneck_ids"))
