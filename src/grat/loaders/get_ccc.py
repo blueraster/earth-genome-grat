@@ -12,7 +12,8 @@ def _read_daily_calendar(ccc_file, crop_column, key_column, key_as_str=False):
     """Reads a crop calendar csv into a nested dictionary of daily values.
 
     Args:
-        ccc_file: path to a csv with one row per crop and key, and columns `dowy1` to `dowy366`
+        ccc_file: path to a csv with one row per crop and key, and columns `dowy1` to `dowy366`.
+            A calendar ending at `dowy365` repeats its last day as `dowy366`.
         crop_column: name of the crop column
         key_column: name of the column for the second level of the dictionary
         key_as_str: cast the key column to string, e.g. for numeric region codes
@@ -21,6 +22,11 @@ def _read_daily_calendar(ccc_file, crop_column, key_column, key_as_str=False):
         dictionary of daily values, structured as `{crop: {key: [day values]}}`
     """
     df = pd.read_csv(ccc_file)
+
+    # 365 day calendars repeat the last day for leap years
+    last_day = f"dowy{DAYS_PER_WATER_YEAR}"
+    if last_day not in df.columns:
+        df = pd.concat([df, df[f"dowy{DAYS_PER_WATER_YEAR - 1}"].rename(last_day)], axis=1)
 
     dowy_column_names = [f"dowy{i}" for i in range(1, DAYS_PER_WATER_YEAR + 1)]
     combined = df[dowy_column_names].to_numpy().tolist()

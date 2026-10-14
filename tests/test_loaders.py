@@ -26,7 +26,8 @@ CCC_CROPS = [
 
 class TestGetWAFR:
     @pytest.fixture(scope="class")
-    def d(self, oak_valley):
+    @classmethod
+    def d(cls, oak_valley):
         # avoid loading the dataset for each test
         return get_wafr.load_wafr(oak_valley / "WAFR_optimistic.csv")
 
@@ -124,6 +125,50 @@ class TestGetCCC:
         del self.ccc["Fallow"]
         with pytest.raises(KeyError, match="Fallow crop type not found"):
             get_ccc.add_mlrp_to_ccc(self.ccc)
+
+
+class TestGetILCCC:
+    @pytest.fixture(autouse=True)
+    def setup(self, oak_valley):
+        self.il_ccc = get_ccc.get_il_crop_calendar(oak_valley / "CCC_inlieu.csv")
+        self.multiplier_file = oak_valley / "CCC_inlieu_multiplier.csv"
+
+    def test_il_crops(self):
+        assert len(self.il_ccc) == 19
+        assert "Wheat" not in self.il_ccc
+
+    def test_il_regions(self):
+        # regions are string keys
+        assert sorted(self.il_ccc["Alfalfa"].keys()) == ["11", "12", "13", "8"]
+
+    def test_il_length_with_leap_day(self):
+        # the sample ends at dowy365, so dowy366 repeats it
+        alfalfa = self.il_ccc["Alfalfa"]["8"]
+        assert len(alfalfa) == 366
+        assert alfalfa[365] == alfalfa[364]
+
+    def test_il_value(self):
+        # first non-zero day for Alfalfa in region 8 is dowy183 (April 1st)
+        assert self.il_ccc["Alfalfa"]["8"][181] == 0
+        assert self.il_ccc["Alfalfa"]["8"][182] == pytest.approx(0.169940647)
+
+    def test_il_multiplier(self):
+        multiplier_df = get_ccc.load_in_lieu_climate_multiplier(self.multiplier_file, "t5")
+        assert len(multiplier_df) == 80  # 20 crops x 4 regions
+        assert all(len(m) == 12 for m in multiplier_df["MonthlyMultiplier"])
+
+    def test_il_multiplier_unknown_scenario(self):
+        with pytest.raises(ValueError, match="Scenario T9 not found"):
+            get_ccc.load_in_lieu_climate_multiplier(self.multiplier_file, "t9")
+
+    def test_multiply_crop_calendar(self):
+        multiplier_df = get_ccc.load_in_lieu_climate_multiplier(self.multiplier_file, "t5")
+        il_multi = get_ccc.multiply_crop_calendar(self.il_ccc, multiplier_df)
+
+        # Wheat has multipliers but no calendar, so it is dropped
+        assert sorted(il_multi.keys()) == sorted(self.il_ccc.keys())
+        # April multiplier for Alfalfa in region 8 is 1.1519
+        assert il_multi["Alfalfa"]["8"][182] == pytest.approx(0.169940647 * 1.1519)
 
 
 class TestGetCanals:
