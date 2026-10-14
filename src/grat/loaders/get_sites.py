@@ -1,8 +1,10 @@
-"""Constructs site classes from attributes in a file geodatabase layer."""
+"""Constructs site classes from the attributes of a sites layer (shapefile, geodatabase, geopackage or csv)."""
 
 import logging
+from pathlib import Path
 
-import arcpy
+import pandas as pd
+from pyogrio.raw import read
 
 from grat.loaders import helpers
 from grat.model.sites import Basin, Farm
@@ -10,15 +12,36 @@ from grat.model.sites import Basin, Farm
 logger = logging.getLogger(__name__)
 
 
-def get_sites_from_gdb(fc, query="1-1", ignore_fields=None, attribute_renamer=None):
-    """Loads crop/basin layer from local file geodatabase using arcpy.
+def read_attributes(path, layer=None, where=None):
+    """Reads the attribute table of a sites layer into a dataframe. Geometry is not read.
+
+    Args:
+        path: csv, or any vector file GDAL can read (shapefile, file geodatabase folder, geopackage, geojson)
+        layer: layer name, for files that hold more than one (e.g. a feature class in a file geodatabase)
+        where: optional sql where clause, e.g. `"R_TYPE = 'OFR'"`. Not supported for csv.
+
+    Returns:
+        dataframe with one row per site
+    """
+    if Path(path).suffix.lower() == ".csv":
+        if where is not None:
+            raise ValueError("where is not supported for csv input")
+        return pd.read_csv(path)
+
+    meta, _, _, field_data = read(path, layer=layer, where=where, read_geometry=False)
+    return pd.DataFrame(dict(zip(meta["fields"], field_data, strict=True)))
+
+
+def load_sites(path, layer=None, where=None, ignore_fields=None, attribute_renamer=None):
+    """Loads the crop/basin sites layer.
 
     Each row is turned into a dictionary with the keys being the attribute field names (or the attribute_renamer
     argument) and the values are the row values.
 
     Args:
-        fc: input feature class
-        query: optional sql query to use in the search cursor
+        path: csv, or any vector file GDAL can read (shapefile, file geodatabase folder, geopackage, geojson)
+        layer: layer name, for files that hold more than one (e.g. a feature class in a file geodatabase)
+        where: optional sql where clause, e.g. `"R_TYPE = 'OFR'"`. Not supported for csv.
         ignore_fields: list of fields to ignore
         attribute_renamer: dictionary of attributes to rename to something different
 
@@ -30,21 +53,22 @@ def get_sites_from_gdb(fc, query="1-1", ignore_fields=None, attribute_renamer=No
     if attribute_renamer is None:
         attribute_renamer = {}
 
-    fields = [f.name for f in arcpy.ListFields(fc) if f.name not in ignore_fields]
+    df = read_attributes(path, layer=layer, where=where)
+    df = df.drop(columns=[f for f in ignore_fields if f in df.columns])
+    df = df.astype(object).where(pd.notnull(df), None)
+    logger.debug("Fields: %s", list(df.columns))
+    logger.debug("Where: %s", where)
+
     sites = []
-    logger.debug("Fields: %s", fields)
-    logger.debug("Query: %s", query)
-    with arcpy.da.SearchCursor(fc, fields, where_clause=query) as cursor:
-        for row in cursor:
-            values = [None if r == " " else r for r in row]  # treat empty strings as None
-            zipped_row = dict(zip(fields, values, strict=True))
-            sites.append(helpers.rename_dictionary_keys(zipped_row, attribute_renamer))
+    for row in df.to_dict(orient="records"):
+        values = {k: None if v == " " else v for k, v in row.items()}  # treat empty strings as None
+        sites.append(helpers.rename_dictionary_keys(values, attribute_renamer))
 
     return sites
 
 
 def parse_compatible_sources(compatible_sources):
-    """Split WAFRSOURCE string (comma delimited) into a list.
+    """Split WAFRSOURCE string (comma-delimited) into a list.
 
     Args:
         compatible_sources: string
@@ -58,7 +82,7 @@ def parse_compatible_sources(compatible_sources):
 
 
 def parse_bottleneck_ids(bottleneck_id_string):
-    """Split string (comma delimited) into a list of integers.
+    """Split string (comma-delimited) into a list of integers.
 
     Args:
         bottleneck_id_string: string
