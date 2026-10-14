@@ -91,6 +91,17 @@ class TestHelpers:
         assert d_renamed.get("y") == 2
         assert d_renamed.get("d") == 4
 
+    def test_split_multivalues(self):
+        assert helpers.split_multivalues("Folsom Lake,Yolo Creek") == ["Folsom Lake", "Yolo Creek"]
+        assert helpers.split_multivalues(None) == []
+
+    def test_split_multivalues_strips_spaces(self):
+        assert helpers.split_multivalues("Folsom Lake, Yolo Creek ") == ["Folsom Lake", "Yolo Creek"]
+
+    def test_split_multivalues_drops_empty_values(self):
+        assert helpers.split_multivalues("Folsom Lake,,Yolo Creek,") == ["Folsom Lake", "Yolo Creek"]
+        assert helpers.split_multivalues("") == []
+
 
 class TestGetCCC:
     @pytest.fixture(autouse=True)

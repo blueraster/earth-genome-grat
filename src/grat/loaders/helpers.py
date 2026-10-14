@@ -51,6 +51,8 @@ def rename_dictionary_keys(d: dict, keymap: dict) -> dict:
 def split_multivalues(string):
     """Split a string of comma separated values into a list.
 
+    Spaces around each value are removed, and empty values are dropped.
+
     Args:
         string: string of comma separated values
 
@@ -59,7 +61,7 @@ def split_multivalues(string):
     """
     if string is None:
         return []
-    return string.split(",")
+    return [value.strip() for value in string.split(",") if value.strip()]
 
 
 def single_value_as_string(list_of_values):
