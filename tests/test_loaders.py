@@ -4,6 +4,7 @@ from grat.loaders import (
     get_bottlenecks,
     get_canals,
     get_ccc,
+    get_sites,
     get_wafr,
     helpers,
 )
@@ -252,6 +253,42 @@ class TestGetBottlenecks:
         assert self.turlock.available_throughput[30] == pytest.approx(192.351)
         assert self.turlock.available_throughput[31] == pytest.approx(356.94)
         assert self.turlock.available_throughput[182] == pytest.approx(192.351)
+
+
+class TestLoadSites:
+    @pytest.fixture(autouse=True)
+    def setup(self, oak_valley):
+        self.shp = oak_valley / "oakvalley.shp"
+        self.sites = get_sites.load_sites(self.shp)
+
+    def test_number_of_sites(self):
+        assert len(self.sites) == 685
+
+    def test_fields(self):
+        assert self.sites[0]["GRATID"] is not None
+        assert "R_TYPE" in self.sites[0]
+
+    def test_where(self):
+        sites = get_sites.load_sites(self.shp, where="R_TYPE = 'OFR'")
+        assert len(sites) == 682
+        assert all(s["R_TYPE"] == "OFR" for s in sites)
+
+    def test_ignore_and_rename_fields(self):
+        sites = get_sites.load_sites(self.shp, ignore_fields=["Shape_Leng"], attribute_renamer={"GRATID": "grat_id"})
+        assert "Shape_Leng" not in sites[0]
+        assert "grat_id" in sites[0]
+        assert "GRATID" not in sites[0]
+
+    def test_csv_matches_shapefile(self, tmp_path):
+        csv = tmp_path / "sites.csv"
+        get_sites.read_attributes(self.shp).to_csv(csv, index=False)
+        sites = get_sites.load_sites(csv)
+        assert len(sites) == 685
+        assert sites[0]["GRATID"] == self.sites[0]["GRATID"]
+
+    def test_csv_where_error(self, tmp_path):
+        with pytest.raises(ValueError, match="where is not supported for csv input"):
+            get_sites.load_sites(tmp_path / "sites.csv", where="1=1")
 
 
 class TestCCCMultiplier:
