@@ -4,6 +4,7 @@ from grat.loaders import (
     get_bottlenecks,
     get_canals,
     get_ccc,
+    get_precip,
     get_sites,
     get_wafr,
     helpers,
@@ -59,6 +60,21 @@ class TestGetWAFR:
         assert min(year_array) == 0
         assert max(year_array) == 984.313
         assert sum(year_array) / len(year_array) == pytest.approx(78.42520821917809, abs=1e-6)
+
+    def test_get_wafr_unsorted_rows_and_index_column(self, tmp_path):
+        csv = tmp_path / "wafr.csv"
+        csv.write_text("Unnamed: 0,WaterYear,Day,Folsom Lake\n0,1969,2,20\n1,1969,1,10\n")
+        d = get_wafr.load_wafr(csv)
+        assert d[1969] == {"Folsom Lake": [10, 20]}
+
+
+class TestGetPrecip:
+    def test_get_precip(self, tmp_path):
+        csv = tmp_path / "precip.csv"
+        csv.write_text("Year,Day,rapid,pid_1102\n2000,2,0,1000\n2000,1,0,0\n")
+        d = get_precip.get_precip(csv)
+        assert list(d[2000].keys()) == [1102]  # only pid_ columns are grids
+        assert d[2000][1102] == pytest.approx([0, 3.28084])  # sorted by day, mm to feet
 
 
 # class TestGetPrecip:
@@ -132,6 +148,7 @@ class TestGetCCC:
     def test_add_mlrp_fallow_copied_to_mlrp(self):
         mlrp = get_ccc.add_mlrp_to_ccc(self.ccc)
         assert mlrp["MLRP"] == mlrp["Fallow"]
+        assert mlrp["MLRP"] is not mlrp["Fallow"]
 
     def test_add_mlrp_exception_if_no_fallow(self):
         del self.ccc["Fallow"]
@@ -319,6 +336,11 @@ class TestBuildSites:
         sites = get_sites.build_sites([{"grat_id": 1, "recharge_type": "Basin"}])
         assert len(sites) == 1
         assert sites[0].wafr_sources == []
+
+    def test_build_sites_leaves_input_unchanged(self):
+        site = {"grat_id": 1, "recharge_type": "Basin", "wafr_sources_primary": "Folsom Lake"}
+        get_sites.build_sites([site])
+        assert site["wafr_sources_primary"] == "Folsom Lake"
 
 
 class TestCCCMultiplier:

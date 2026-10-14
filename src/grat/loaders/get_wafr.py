@@ -17,7 +17,13 @@ def load_wafr(file, offset_years=0):
         nested dictionary with WAFR organized by water year + source
     """
     df = pd.read_csv(file)
+
+    # drop index columns written by pandas (e.g. "Unnamed: 0") so they are not read as sources
+    df = df.drop(columns=[c for c in df.columns if c.startswith("Unnamed:")])
     df["WaterYear"] = df["WaterYear"] + offset_years
+
+    # the daily lists are built in row order
+    df = df.sort_values(["WaterYear", "Day"])
 
     # convert wide dataframe to long, one row per year + day + source
     m = pd.melt(df, id_vars=["WaterYear", "Day"])

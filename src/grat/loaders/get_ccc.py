@@ -1,5 +1,6 @@
 """Loads crop compatibility calendars from csvs."""
 
+import copy
 import json
 from collections import defaultdict
 
@@ -266,6 +267,6 @@ def add_mlrp_to_ccc(ccc_dict, mlrp_crop_name="MLRP"):
     if fallow is None:
         raise KeyError("Fallow crop type not found in the crop calendar dictionary")
 
-    ccc_dict[mlrp_crop_name] = fallow
+    ccc_dict[mlrp_crop_name] = copy.deepcopy(fallow)
 
     return ccc_dict

@@ -108,6 +108,8 @@ def build_sites(sites_dictionary_list):
     """
     sites = []
     for p in sites_dictionary_list:
+        p = dict(p)  # leave the caller's dictionary unchanged
+
         # split multiple wafr sources string into list
         p["wafr_sources_primary"] = parse_compatible_sources(p.get("wafr_sources_primary"))
         p["wafr_sources_secondary"] = parse_compatible_sources(p.get("wafr_sources_secondary"))

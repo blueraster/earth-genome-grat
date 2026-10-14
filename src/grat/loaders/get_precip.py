@@ -27,8 +27,11 @@ def get_precip(input_precip_file, precip_coef: float = 1.0, offset_years: int = 
     df = pd.read_csv(input_precip_file)
     df["WaterYear"] = df["Year"] + offset_years
 
+    # the daily lists are built in row order
+    df = df.sort_values(["WaterYear", "Day"])
+
     # convert wide dataframe to long
-    m = pd.melt(df, id_vars=["WaterYear", "Day"], value_vars=[col for col in df.columns if "pid" in col])
+    m = pd.melt(df, id_vars=["WaterYear", "Day"], value_vars=[col for col in df.columns if col.startswith("pid_")])
 
     # unit conversion (mm to feet) * coefficient
     m["precip_ft"] = m["value"] * MM_TO_FEET * precip_coef
