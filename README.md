@@ -16,6 +16,17 @@ pip install grat
 
 ## Usage
 
+Load the sites layer from a shapefile, file geodatabase, geopackage, geojson or csv.
+ArcGIS is not needed; only the attribute table is read.
+
+```python
+from grat.loaders.get_sites import load_sites
+
+rows = load_sites("OakValley/oakvalley.shp")
+rows = load_sites("project.gdb", layer="sites", where="R_TYPE = 'OFR'")
+rows = load_sites("sites.csv", attribute_renamer={"GRATID": "grat_id", "R_TYPE": "recharge_type"})
+```
+
 Run the model and produce reports:
 
 ```python

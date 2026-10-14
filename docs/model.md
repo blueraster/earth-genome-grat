@@ -109,4 +109,28 @@ turns its output into reports in one call — see the top-level
   (a threshold plus either a percentage or a flat acre-foot volume) into its yearly
   transfer budget.
 - `constants.py` — shared constants: `DAYS_PER_WATER_YEAR`, `CFS_TO_ACRE_FEET_PER_DAY`,
-  `DEFAULT_CFS_LIMIT`, `DEFAULT_YEARS`.
+  `DEFAULT_CFS_LIMIT`, `DEFAULT_YEARS`, `DEFAULT_IRRIGATION_DAYS`.
+
+## Irrigation season
+
+`DEFAULT_IRRIGATION_DAYS` is the default irrigation season: zero-indexed days of the
+water year from April 1st through October 31st (days 0-30 and 182-365). Canals accept
+no WAFR on those days, and bottlenecks switch to their irrigation capacity. It is applied
+when the loaders build canals and bottlenecks, so pass `irrigation_days` to a loader to
+use a different season:
+
+```python
+from grat.loaders.get_bottlenecks import load_bottlenecks
+from grat.loaders.get_canals import load_canals
+
+canals = load_canals("canals.csv")  # default season
+canals = load_canals("canals.csv", irrigation_days=list(range(0, 31)))  # October only
+canals = load_canals("canals.csv", irrigation_days=[])  # no irrigation season
+
+bottlenecks = load_bottlenecks("bottlenecks.csv", irrigation_days=list(range(0, 31)))
+```
+
+Use the same season for canals and bottlenecks in a run.
+
+The model classes (`sites.Canal`, `bottlenecks.Bottleneck`) take the same argument but
+default to no irrigation season when it is omitted.
