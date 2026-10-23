@@ -15,7 +15,7 @@ without a real district's inputs.
 | `bottlenecks.csv` | Conveyance bottlenecks: capacity (cfs) and the WAFR sources they carry. |
 | `WAFR_optimistic.csv` | Daily water available for recharge by source, optimistic scenario, water years 1969–2018 (1968-10-01 to 2018-09-30). |
 | `WAFR_pessimistic.csv` | Daily water available for recharge by source, pessimistic scenario, same period. |
-| `Precip_optimistic.csv` | Daily precipitation (mm) by precipitation grid (`pid_<PRECIP_IDX>`), optimistic scenario, same period. `Year` is the water year and `Day` is the day of the water year. |
+| `Precip_optimistic.csv` | Daily precipitation (mm) by precipitation grid (`pid_<PRECIP_IDX>`), optimistic scenario, same period. `WaterYear` is the water year and `Day` is the day of the water year, as in the WAFR files. |
 | `Precip_pessimistic.csv` | Daily precipitation (mm) by precipitation grid, pessimistic scenario, same period and layout. |
 | `CCC_ofr.csv` | Crop calendar for on-farm recharge: accepted application by crop and SAGBI class, per day of water year. |
 | `CCC_inlieu.csv` | Crop calendar for in-lieu recharge, by crop and region, per day of water year. |

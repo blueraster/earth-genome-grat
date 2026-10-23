@@ -15,17 +15,19 @@ def get_precip(input_precip_file, precip_coef: float = 1.0, offset_years: int = 
     Data structure: `{year: {grid: [depth, depth, depth, ...]}}`
 
     Args:
-        input_precip_file: file path to the input precipitation file. Expects `Year` and `Day`
+        input_precip_file: file path to the input precipitation file. Expects `WaterYear` and `Day`
             columns, plus one `pid_<grid>` column of daily rainfall (mm) per precipitation grid.
+            A `Year` column is read as the water year when there is no `WaterYear` column.
         precip_coef: coefficient to multiply input file to modify rainfall totals in different runs
         offset_years: number of years to adjust to match the WAFR input
 
     Returns:
         dictionary with daily depth of rain (feet) grouped by year + grid code
     """
-    # load csv and add the water year
+    # load csv and offset the water year (older files name it `Year`)
     df = pd.read_csv(input_precip_file)
-    df["WaterYear"] = df["Year"] + offset_years
+    year_col = "WaterYear" if "WaterYear" in df.columns else "Year"
+    df["WaterYear"] = df[year_col] + offset_years
 
     # the daily lists are built in row order
     df = df.sort_values(["WaterYear", "Day"])

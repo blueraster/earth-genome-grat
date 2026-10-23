@@ -71,10 +71,16 @@ class TestGetWAFR:
 class TestGetPrecip:
     def test_get_precip(self, tmp_path):
         csv = tmp_path / "precip.csv"
-        csv.write_text("Year,Day,rapid,pid_1102\n2000,2,0,1000\n2000,1,0,0\n")
+        csv.write_text("WaterYear,Day,rapid,pid_1102\n2000,2,0,1000\n2000,1,0,0\n")
         d = get_precip.get_precip(csv)
         assert list(d[2000].keys()) == [1102]  # only pid_ columns are grids
         assert d[2000][1102] == pytest.approx([0, 3.28084])  # sorted by day, mm to feet
+
+    def test_get_precip_year_column(self, tmp_path):
+        csv = tmp_path / "precip.csv"
+        csv.write_text("Year,Day,pid_1102\n2000,1,1000\n")
+        d = get_precip.get_precip(csv, offset_years=1)
+        assert d[2001][1102] == pytest.approx([3.28084])  # Year read as the water year
 
 
 # class TestGetPrecip:
