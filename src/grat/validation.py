@@ -28,22 +28,27 @@ assembled by hand.
 import math
 from collections import Counter
 from dataclasses import dataclass, field
+from numbers import Number
 
 from grat.loaders.get_ccc import ccc_valid_crops, ccc_valid_soil_types
 from grat.loaders.get_sites import parse_bottleneck_ids, parse_compatible_sources
 from grat.model.constants import DAYS_PER_WATER_YEAR
 
-KNOWN_RECHARGE_TYPES = {"OFR", "Basin", "Canal", None}
-
 
 def _is_number(value):
-    """True if `value` is a real, non-NaN number (bools don't count)."""
-    if isinstance(value, bool) or value is None:
+    """True if `value` is an actual number (not a numeric-looking string) and not NaN.
+
+    A numeric string such as `"10"` is deliberately rejected: callers compare the
+    value against zero, and the loaders never coerce stray strings to numbers, so a
+    string that merely looks numeric would behave no better in the model than one
+    that doesn't.
+    """
+    if isinstance(value, bool) or not isinstance(value, Number):
         return False
     try:
-        return not math.isnan(float(value))
-    except (TypeError, ValueError):
-        return False
+        return not math.isnan(value)
+    except TypeError:
+        return True  # non-float numeric types (e.g. int) are never NaN
 
 
 def _as_list(value, parser):
@@ -61,6 +66,77 @@ def _as_list(value, parser):
     if isinstance(value, (list, tuple, set)):
         return list(value)
     return parser(value)
+
+
+def _sort_key(value):
+    """Sort key that tolerates `None` and mixed types, unlike the default `sorted`."""
+    return (value is None, str(value))
+
+
+def _safe_sorted(values):
+    """`sorted`, but safe for a collection that may mix `None` with strings, numbers, or tuples."""
+    return sorted(values, key=_sort_key)
+
+
+def _site_bottleneck_ids(site):
+    """Parses one site's `bottleneck_ids` field the same way `build_sites` does.
+
+    Args:
+        site: a site dictionary, as returned by `load_sites`.
+
+    Returns:
+        `(ids, error_message)` - `ids` is a list (possibly empty), and `error_message`
+        is `None` unless the field couldn't be parsed, in which case `ids` is empty.
+    """
+    raw = site.get("bottleneck_ids")
+    if isinstance(raw, (list, tuple, set)):
+        return list(raw), None
+    try:
+        return parse_bottleneck_ids(raw) or [], None
+    except (TypeError, ValueError):
+        return [], f"site {site.get('grat_id')!r} has an unparseable bottleneck_ids value: {raw!r}."
+
+
+def _in_lieu_region_key(region_number):
+    """Returns the in-lieu crop calendar lookup key for a region number, or `None`.
+
+    Mirrors the normalization `build_sites` applies before `Farm.get_site_volume` looks
+    the region number up in the in-lieu calendar (`str(region_number)`, with whole
+    numbers first stripped of a trailing `.0`) - `region_number=8.0` and
+    `region_number="8"` must resolve to the same key, `"8"`.
+
+    Args:
+        region_number: a site's raw `region_number` value.
+
+    Returns:
+        The calendar lookup key, or `None` if there is no region number (in which case
+        the model skips the in-lieu lookup entirely rather than using a key).
+    """
+    if region_number is None:
+        return None
+    if isinstance(region_number, Number) and not isinstance(region_number, bool) and region_number % 1 == 0:
+        return str(int(region_number))
+    return str(region_number)
+
+
+def _would_build(site):
+    """True if `build_sites` would keep this site rather than silently dropping it.
+
+    Mirrors `grat.loaders.get_sites.build_sites`'s branching exactly: only
+    `recharge_type` of `"OFR"` or `"Basin"` survive outright, and `recharge_type=None`
+    survives only alongside an `in_lieu_crop`. Any other `recharge_type` - including
+    `"Canal"`, which is never built from a sites row - is dropped, in_lieu_crop or not.
+
+    Args:
+        site: a site dictionary, as returned by `load_sites`.
+
+    Returns:
+        True if `build_sites` would construct a `Farm` or `Basin` from this row.
+    """
+    recharge_type = site.get("recharge_type")
+    if recharge_type in ("OFR", "Basin"):
+        return True
+    return recharge_type is None and site.get("in_lieu_crop") is not None
 
 
 @dataclass
@@ -134,6 +210,8 @@ def check_sites(
     valid_crops=None,
     valid_il_crops=None,
     valid_soil_types=None,
+    crop_calendar=None,
+    crop_calendar_in_lieu=None,
 ):
     """Checks the site dictionaries returned by `load_sites`, before `build_sites` runs.
 
@@ -151,6 +229,12 @@ def check_sites(
         valid_crops: crop types present in the on-farm crop compatibility calendar.
         valid_il_crops: crop types present in the in-lieu crop compatibility calendar.
         valid_soil_types: soil types present in the crop compatibility calendar.
+        crop_calendar: the on-farm crop compatibility calendar itself (`{crop: {soil_type:
+            [...]}}`), to check each site's actual crop/soil_type pair rather than just
+            whether each half is individually known.
+        crop_calendar_in_lieu: the in-lieu crop compatibility calendar itself
+            (`{crop: {region_number: [...]}}`), to check each site's actual
+            in_lieu_crop/region_number pair.
     """
     if not sites:
         report.error("sites", "No site rows were loaded - check the file path, layer name and where clause.")
@@ -161,17 +245,16 @@ def check_sites(
     if missing_ids:
         report.error("sites", f"{missing_ids} of {len(sites)} site(s) have a missing grat_id.")
 
-    duplicate_ids = sorted(gid for gid, n in Counter(i for i in ids if i is not None).items() if n > 1)
+    duplicate_ids = _safe_sorted(gid for gid, n in Counter(i for i in ids if i is not None).items() if n > 1)
     if duplicate_ids:
         report.warning("sites", f"grat_id is duplicated for {len(duplicate_ids)} site(s), e.g. {duplicate_ids[:5]}.")
 
-    recharge_type_counts = Counter(s.get("recharge_type") for s in sites)
-    unknown_types = {t: n for t, n in recharge_type_counts.items() if t not in KNOWN_RECHARGE_TYPES}
-    if unknown_types:
+    dropped = [s.get("grat_id") for s in sites if not _would_build(s)]
+    if dropped:
         report.warning(
             "sites",
-            f"{sum(unknown_types.values())} site(s) have a recharge_type build_sites doesn't recognize "
-            f"({sorted(unknown_types)}); these will be silently dropped unless they also have an in_lieu_crop.",
+            f"{len(dropped)} site(s) will be silently dropped by build_sites - recharge_type must be "
+            f'"OFR", "Basin", or None with an in_lieu_crop set, e.g. ids {dropped[:5]}.',
         )
 
     non_numeric_acres = [s.get("grat_id") for s in sites if not _is_number(s.get("acres"))]
@@ -204,12 +287,12 @@ def check_sites(
         )
 
     if valid_crops is not None:
-        bad_crops = sorted({s["crop"] for s in ofr_sites if s.get("crop") and s["crop"] not in valid_crops})
+        bad_crops = _safe_sorted({s["crop"] for s in ofr_sites if s.get("crop") and s["crop"] not in valid_crops})
         if bad_crops:
             report.warning("sites", f"Crop type(s) not found in the on-farm crop compatibility calendar: {bad_crops}.")
 
     if valid_il_crops is not None:
-        bad_il_crops = sorted(
+        bad_il_crops = _safe_sorted(
             {s["in_lieu_crop"] for s in sites if s.get("in_lieu_crop") and s["in_lieu_crop"] not in valid_il_crops}
         )
         if bad_il_crops:
@@ -218,11 +301,45 @@ def check_sites(
             )
 
     if valid_soil_types is not None:
-        bad_soils = sorted(
-            {s["soil_type"] for s in ofr_sites if s.get("crop") and s.get("soil_type") not in valid_soil_types}
+        bad_soils = _safe_sorted(
+            {s.get("soil_type") for s in ofr_sites if s.get("crop") and s.get("soil_type") not in valid_soil_types}
         )
         if bad_soils:
             report.warning("sites", f"Soil type(s) not found in the crop compatibility calendar: {bad_soils}.")
+
+    if crop_calendar is not None:
+        # only for crops the calendar actually has - a crop missing entirely is already
+        # covered by the warning above, and checking it here would just double-report it.
+        missing_pairs = _safe_sorted(
+            {
+                (s["crop"], s.get("soil_type"))
+                for s in ofr_sites
+                if s.get("crop") in crop_calendar and s.get("soil_type") not in crop_calendar[s["crop"]]
+            }
+        )
+        if missing_pairs:
+            report.error(
+                "sites",
+                f"Crop/soil_type combination(s) not found in the on-farm crop compatibility calendar - "
+                f"Farm.get_site_volume will raise a KeyError for these: {missing_pairs}.",
+            )
+
+    if crop_calendar_in_lieu is not None:
+        missing_il_pairs = _safe_sorted(
+            {
+                (s["in_lieu_crop"], _in_lieu_region_key(s.get("region_number")))
+                for s in sites
+                if s.get("in_lieu_crop") in crop_calendar_in_lieu
+                and s.get("region_number") is not None
+                and _in_lieu_region_key(s["region_number"]) not in crop_calendar_in_lieu[s["in_lieu_crop"]]
+            }
+        )
+        if missing_il_pairs:
+            report.error(
+                "sites",
+                f"In_lieu_crop/region_number combination(s) not found in the in-lieu crop compatibility "
+                f"calendar - Farm.get_site_volume will raise a KeyError for these: {missing_il_pairs}.",
+            )
 
     if known_wafr_sources is not None:
         used_sources = {
@@ -231,23 +348,29 @@ def check_sites(
             for src in _as_list(s.get("wafr_sources_primary"), parse_compatible_sources)
             + _as_list(s.get("wafr_sources_secondary"), parse_compatible_sources)
         }
-        unknown_sources = sorted(used_sources - set(known_wafr_sources))
+        unknown_sources = _safe_sorted(used_sources - set(known_wafr_sources))
         if unknown_sources:
             report.warning(
                 "sites", f"WAFR source(s) referenced by sites but not present in the WAFR data: {unknown_sources}."
             )
 
+    # build_sites calls parse_bottleneck_ids too, so an unparseable value breaks the
+    # model whether or not bottleneck data was supplied here - always check it.
+    used_bottleneck_ids = set()
+    bad_bottleneck_fields = []
+    for s in sites:
+        parsed_ids, error_message = _site_bottleneck_ids(s)
+        used_bottleneck_ids.update(parsed_ids)
+        if error_message:
+            bad_bottleneck_fields.append(error_message)
+
+    if bad_bottleneck_fields:
+        shown = bad_bottleneck_fields[:5]
+        remainder = f" (+{len(bad_bottleneck_fields) - 5} more)" if len(bad_bottleneck_fields) > 5 else ""
+        report.error("sites", " ".join(shown) + remainder)
+
     if known_bottleneck_ids is not None:
-        used_bottleneck_ids = {
-            bid
-            for s in sites
-            for bid in (
-                s["bottleneck_ids"]
-                if isinstance(s.get("bottleneck_ids"), (list, tuple, set))
-                else (parse_bottleneck_ids(s.get("bottleneck_ids")) or [])
-            )
-        }
-        unknown_bottleneck_ids = sorted(used_bottleneck_ids - set(known_bottleneck_ids))
+        unknown_bottleneck_ids = _safe_sorted(used_bottleneck_ids - set(known_bottleneck_ids))
         if unknown_bottleneck_ids:
             report.warning(
                 "sites",
@@ -257,14 +380,14 @@ def check_sites(
 
     if known_precip_grids is not None:
         used_grids = {s["precip_grid"] for s in sites if s.get("precip_grid") is not None}
-        unknown_grids = sorted(used_grids - set(known_precip_grids))
+        unknown_grids = _safe_sorted(used_grids - set(known_precip_grids))
         if unknown_grids:
             report.warning(
                 "sites", f"Precip grid id(s) referenced by sites but not present in the precip data: {unknown_grids}."
             )
 
 
-def _check_daily_series(report, source, data, label_singular):
+def _check_daily_series(report, source, data, label_singular, *, empty_year_is_error=False):
     """Shared checks for the `{year: {key: [daily values]}}` shape of WAFR and precip data.
 
     Args:
@@ -272,6 +395,10 @@ def _check_daily_series(report, source, data, label_singular):
         source: name to tag issues with, e.g. "wafr" or "precip".
         data: dictionary of `{year: {key: [daily values]}}`.
         label_singular: name for one `key`, e.g. "source" or "grid", used in messages.
+        empty_year_is_error: report a year with no entries as an error rather than a
+            warning. True for WAFR: `process_year` reads the day count from its first
+            source and raises `IndexError` for a year with none. Precipitation is
+            optional per site, so an empty year there degrades gracefully instead.
     """
     if not data:
         report.error(source, "No data was loaded.")
@@ -279,7 +406,8 @@ def _check_daily_series(report, source, data, label_singular):
 
     for year, by_key in data.items():
         if not by_key:
-            report.warning(source, f"Water year {year} has no {label_singular}s.")
+            record_issue = report.error if empty_year_is_error else report.warning
+            record_issue(source, f"Water year {year} has no {label_singular}s.")
             continue
 
         lengths = {key: len(values) for key, values in by_key.items()}
@@ -311,7 +439,7 @@ def check_wafr(report, wafr):
         report: `ValidationReport` to add issues to.
         wafr: dictionary of `{year: {source: [daily values]}}`.
     """
-    _check_daily_series(report, "wafr", wafr, "source")
+    _check_daily_series(report, "wafr", wafr, "source", empty_year_is_error=True)
 
 
 def check_precip(report, precip):
@@ -389,8 +517,17 @@ def check_crop_calendar(report, crop_calendar, *, source="crop calendar"):
 
     for crop, by_key in crop_calendar.items():
         for key, values in by_key.items():
-            if len(values) not in (DAYS_PER_WATER_YEAR - 1, DAYS_PER_WATER_YEAR):
-                report.error(source, f"{crop} / {key} has {len(values)} day(s) instead of 365 or 366.")
+            # the loaders always pad a calendar to DAYS_PER_WATER_YEAR entries (the last
+            # day of a 365-day calendar is repeated as day 366), and Farm.get_site_volume
+            # indexes up to the length of whichever water year's WAFR is currently
+            # running - up to 365 for a non-leap year - so a shorter calendar here can
+            # raise IndexError on a leap year even though no single WAFR year would.
+            if len(values) != DAYS_PER_WATER_YEAR:
+                report.error(source, f"{crop} / {key} has {len(values)} day(s) instead of {DAYS_PER_WATER_YEAR}.")
+
+            if any(not _is_number(v) for v in values):
+                report.error(source, f"{crop} / {key} has missing or non-numeric accepted-rate value(s).")
+
             if any(_is_number(v) and v < 0 for v in values):
                 report.warning(source, f"{crop} / {key} has negative accepted-rate value(s).")
 
@@ -426,6 +563,11 @@ def validate_grat_inputs(
     """
     report = ValidationReport()
 
+    # materialize once - an iterator/generator would otherwise be exhausted building
+    # known_bottleneck_ids below, leaving nothing for check_bottlenecks to see.
+    if bottleneck_rows is not None:
+        bottleneck_rows = list(bottleneck_rows)
+
     valid_crops = ccc_valid_crops(crop_calendar) if crop_calendar else None
     valid_soil_types = ccc_valid_soil_types(crop_calendar) if crop_calendar else None
     valid_il_crops = ccc_valid_crops(crop_calendar_in_lieu) if crop_calendar_in_lieu else None
@@ -443,6 +585,8 @@ def validate_grat_inputs(
         valid_crops=valid_crops,
         valid_il_crops=valid_il_crops,
         valid_soil_types=valid_soil_types,
+        crop_calendar=crop_calendar,
+        crop_calendar_in_lieu=crop_calendar_in_lieu,
     )
     check_wafr(report, wafr)
 
