@@ -17,9 +17,17 @@ To run the model and produce reports in one call::
     read_report(result["output_folder"], "annual_summary_recharge")
 
 `grat.reports.catalog.ALL_REPORTS` lists everything that can be asked for.
+
+Before running, check your own input data for problems with `grat.validation`::
+
+    from grat.validation import validate_grat_inputs
+
+    report = validate_grat_inputs(sites, wafr, crop_calendar=crop_calendar)
+    report  # prints a summary in a notebook cell
 """
 
 from grat.reports.writers import read_report
 from grat.run import run_grat
+from grat.validation import validate_grat_inputs
 
-__all__ = ["read_report", "run_grat"]
+__all__ = ["read_report", "run_grat", "validate_grat_inputs"]
