@@ -213,8 +213,8 @@ class TestGetCanals:
         assert self.canal_list[0].perc_rate == 8
 
     def test_name(self):
-        assert self.canal_list[0].grat_id == "Oak Valley"
-        assert self.canal_list[0].district == "Oak Valley"
+        assert self.canal_list[0].grat_id == "Oak Valley ID"
+        assert self.canal_list[0].district == "Oak Valley ID"
 
     def test_subbasin(self):
         assert self.canal_list[0].subbasin == "North American"
