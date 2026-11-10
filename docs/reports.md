@@ -47,7 +47,7 @@ Two entry points, called once each per run:
   post-run csv reports (as dataframes) and the frontend series (as json-ready dicts).
 
 `run_grat` (in `grat.run`) is the normal way to invoke both of these — see the
-top-level [README](../README.md#usage) for the one-call version. Calling
+top-level [quick start](index.md#quick-start) for the one-call version. Calling
 `report_picker`/`post_process` directly is for driving the model's year loop
 yourself, as shown in [model.md](model.md#running-the-model).
 

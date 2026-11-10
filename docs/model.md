@@ -93,7 +93,7 @@ start_analysis(raw_sites, raw_wafr, raw_bottlenecks, crop_calendar, precip, on_y
 
 Most callers should use `grat.run.run_grat` instead, which drives `start_analysis` and
 turns its output into reports in one call — see the top-level
-[README](../README.md#usage).
+[quick start](index.md#quick-start).
 
 ## Other modules
 
