@@ -71,6 +71,14 @@ reports["annual_summary_recharge"]
 
 ## Documentation
 
+Full docs, including an API reference generated from the docstrings, are published at
+<https://blueraster.github.io/earth-genome-grat/>. To preview them locally:
+
+```bash
+uv sync --group docs
+uv run mkdocs serve
+```
+
 - [docs/model.md](docs/model.md) — `grat.model`: sites, allocation order, bottlenecks,
   transfers, and running the year loop yourself.
 - [docs/reports.md](docs/reports.md) — `grat.reports`: the report catalog, what each

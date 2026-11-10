@@ -82,10 +82,10 @@ def run_grat(
         A dict with four keys:
 
         - `"output_folder"`: where the csv files were written. Pass it to `read_report`
-          to get any of them back as a dataframe.
+            to get any of them back as a dataframe.
         - `"zip_path"`: the zip archive, or None when `zip_output` was False.
         - `"reports"`: sorted names of the reports produced. A report whose model input
-          was missing - no bottlenecks, no transfer list - is absent.
+            was missing - no bottlenecks, no transfer list - is absent.
         - `"series"`: the frontend visualisation data, keyed by series name.
 
     Raises:
