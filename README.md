@@ -1,6 +1,6 @@
 # grat
 
-[![CI](https://github.com/blueraster/grat/actions/workflows/ci.yml/badge.svg)](https://github.com/blueraster/grat/actions/workflows/ci.yml)
+[![CI](https://github.com/blueraster/earth-genome-grat/actions/workflows/ci.yml/badge.svg)](https://github.com/blueraster/earth-genome-grat/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/grat.svg)](https://pypi.org/project/grat/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
