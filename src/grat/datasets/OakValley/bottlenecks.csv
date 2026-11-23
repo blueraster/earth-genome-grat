@@ -1,5 +1,5 @@
 ﻿bid,name,capacity_cfs,capacity_irr_cfs,wafrsource
-0,Turlock Main Canal,180,97,Folsom Lake
+0,Main Canal,180,97,Folsom Lake
 1,Canal 1,24,14,"Folsom Lake,Yolo Creek"
 2,Canal 2,35,20,Folsom Lake
 3,Canal 3,24,13,Folsom Lake
