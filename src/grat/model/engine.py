@@ -478,7 +478,8 @@ def start_analysis(
             year, so this list is not modified.
         raw_wafr: volume available (acre-feet) per day, keyed by WAFR source
             name, for each year — indexed as `[year][source][day]`.
-        raw_bottlenecks: every bottleneck in the system. Copied per year.
+        raw_bottlenecks: every bottleneck in the system, or `None` if there are
+            none. Copied per year.
         crop_calendar: accepted application rate (feet per day) for on-farm
             recharge, indexed as `[crop][soil_type][day]`.
         precip: daily precipitation depth (decimal-feet) for each year, indexed
@@ -540,9 +541,10 @@ def start_analysis(
             transfer_goals,
         )
 
+        # the model needs a list; on_year still gets None so reports know bottlenecks were missing
         process_year(
             sites,
-            bottlenecks,
+            bottlenecks if bottlenecks is not None else [],
             wafr,
             crop_calendar,
             year_precip,
