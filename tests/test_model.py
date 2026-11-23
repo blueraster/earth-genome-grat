@@ -1452,3 +1452,17 @@ class TestCalcTransferLimits:
     def test_district_transfer_goals_defaults_to_empty_when_omitted(self):
         result = calc_transfer_limits(self.wafr, self.transfer_sources)
         assert result == {"transfer_wafr_sources": self.transfer_sources}
+
+
+class TestUnsortedSitesWarning:
+    def test_warns_when_sort_index_missing(self, caplog):
+        raw_sites = [sites.Basin(grat_id="a"), sites.Basin(grat_id="b")]
+        with caplog.at_level(logging.WARNING):
+            engine.start_analysis(raw_sites, {}, None, {}, None, years=[])
+        assert "2 of 2 sites have no sortIndex" in caplog.text
+
+    def test_no_warning_once_sorted(self, caplog):
+        raw_sites = sorters.sort_sites([sites.Basin(grat_id="a"), sites.Basin(grat_id="b")])
+        with caplog.at_level(logging.WARNING):
+            engine.start_analysis(raw_sites, {}, None, {}, None, years=[])
+        assert "sortIndex" not in caplog.text
