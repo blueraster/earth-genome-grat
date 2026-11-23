@@ -245,3 +245,26 @@ def test_write_csv_append(tmp_path):
     writers.write_csv(df, str(tmp_path), "replaced.csv")
     writers.write_csv(df, str(tmp_path), "replaced.csv")
     assert len(pd.read_csv(tmp_path / "replaced.csv")) == 1
+
+
+def test_post_process_monthly_reports_with_null_sort_index(tmp_path):
+    # EG-179: nothing in a run calls sort_sites, so every sortIndex is written blank,
+    # and reading it back as int broke reports 06 and 07
+    sites = [
+        SimpleNamespace(grat_id="a", recharge_type="Basin", sort_index=None),
+        SimpleNamespace(grat_id="b", recharge_type="OFR", sort_index=None),
+    ]
+    writers.write_report(builders.get_site_info(sites), str(tmp_path), "site_info")
+
+    months = {str(m): [1.0, 2.0] for m in range(1, 13)}
+    monthly = pd.DataFrame(
+        {"Year": [2001, 2001], "gratID": ["a", "b"], "recharge_volume_type": "OFR/Basin/Canal", **months}
+    )
+    writers.write_report(monthly, str(tmp_path), "monthly_recharge_by_site_temp")
+
+    names = ["monthly_recharge_by_site_report", "monthly_recharge_by_site_report_detailed"]
+    results = selector.post_process(names, str(tmp_path))
+
+    for name in names:
+        assert sorted(results[name]["gratID"]) == ["a", "b"]
+        assert os.path.exists(tmp_path / writers.REPORT_FILES[name].filename)
