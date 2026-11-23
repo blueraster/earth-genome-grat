@@ -248,7 +248,7 @@ class TestGetBottlenecks:
     @pytest.fixture(autouse=True)
     def setup(self, oak_valley):
         self.bottlenecks = get_bottlenecks.load_bottlenecks(oak_valley / "bottlenecks.csv")
-        self.turlock = next(b for b in self.bottlenecks if b.name == "Turlock Main Canal")
+        self.main_canal = next(b for b in self.bottlenecks if b.name == "Main Canal")
 
     def test_get_bn(self):
         assert len(self.bottlenecks) == 19
@@ -257,12 +257,12 @@ class TestGetBottlenecks:
         assert [b.bottleneck_id for b in self.bottlenecks] == list(range(19))
 
     def test_capacity(self):
-        assert self.turlock.capacity == pytest.approx(356.94)  # 180 cfs x 1.983 acre-feet per day
-        assert self.turlock.capacity_irrigation == pytest.approx(192.351)  # 97 cfs x 1.983 acre-feet per day
+        assert self.main_canal.capacity == pytest.approx(356.94)  # 180 cfs x 1.983 acre-feet per day
+        assert self.main_canal.capacity_irrigation == pytest.approx(192.351)  # 97 cfs x 1.983 acre-feet per day
 
     def test_wafr_sources(self):
         canal_1 = next(b for b in self.bottlenecks if b.name == "Canal 1")
-        assert self.turlock.wafr_sources == ["Folsom Lake"]
+        assert self.main_canal.wafr_sources == ["Folsom Lake"]
         assert canal_1.wafr_sources == ["Folsom Lake", "Yolo Creek"]
 
     def test_wafr_sources_match_wafr(self, oak_valley):
@@ -272,10 +272,10 @@ class TestGetBottlenecks:
         assert {s for b in self.bottlenecks for s in b.wafr_sources} <= wafr_sources
 
     def test_available_throughput_array(self):
-        assert self.turlock.available_throughput[0] == pytest.approx(192.351)
-        assert self.turlock.available_throughput[30] == pytest.approx(192.351)
-        assert self.turlock.available_throughput[31] == pytest.approx(356.94)
-        assert self.turlock.available_throughput[182] == pytest.approx(192.351)
+        assert self.main_canal.available_throughput[0] == pytest.approx(192.351)
+        assert self.main_canal.available_throughput[30] == pytest.approx(192.351)
+        assert self.main_canal.available_throughput[31] == pytest.approx(356.94)
+        assert self.main_canal.available_throughput[182] == pytest.approx(192.351)
 
 
 class TestLoadSites:
