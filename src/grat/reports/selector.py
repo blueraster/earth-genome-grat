@@ -226,7 +226,7 @@ SITE_INFO_DTYPES = {
     "bottleneckIDs": "string",
     "soilType": "string",
     "rsi": float,
-    "sortIndex": int,
+    "sortIndex": "Int64",
     "crop": "string",
     "inLieuCrop": "string",
     "subbasin": "string",

@@ -20,7 +20,6 @@ from grat.model.transfers import calc_transfer_limits
 
 logger = logging.getLogger(__name__)
 
-# TODO - these are hard-code to remove need for config.py but need to be moved OSGRAT
 transfer_supply_sources = {}
 
 
@@ -510,6 +509,15 @@ def start_analysis(
 
     if years is None:
         years = DEFAULT_YEARS
+
+    unsorted = sum(1 for site in raw_sites if site.sort_index is None)
+    if unsorted:
+        logger.warning(
+            "%d of %d sites have no sortIndex; the model will run them in the order of the input data. "
+            "Call sorters.sort_sites first to set a processing order.",
+            unsorted,
+            len(raw_sites),
+        )
 
     for year in years:
         logger.info("Running GRAT for %s", year)
