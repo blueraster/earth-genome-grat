@@ -677,7 +677,7 @@ def bottlenecks_capacity_limitations_report(year, bottleneck_list):
             (
                 year,
                 f"BottleneckID {b.bottleneck_id}",
-                list(b.available_throughput).count(0),
+                sum(1 for t in b.available_throughput if t <= 0),
             )
         )
 

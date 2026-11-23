@@ -140,7 +140,7 @@ def test_daily_wafr_report_drops_day_366():
 
 def test_bottlenecks_capacity_limitations_report():
     bottleneck_list = [
-        SimpleNamespace(bottleneck_id=10, available_throughput=[0, 0, 5] + [1] * 363),
+        SimpleNamespace(bottleneck_id=10, available_throughput=[0, -0.5, 5] + [1] * 363),
         SimpleNamespace(bottleneck_id=2, available_throughput=[1] * 366),
         SimpleNamespace(bottleneck_id=1, available_throughput=[0] * 366),
     ]
