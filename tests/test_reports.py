@@ -1,3 +1,4 @@
+import logging
 import os
 from types import SimpleNamespace
 
@@ -6,6 +7,7 @@ import pandas as pd
 import pytest
 
 from grat.reports import builders, catalog, converters, selector, writers
+from grat.run import run_grat
 
 wd = os.path.abspath(os.path.dirname(__file__))
 
@@ -245,6 +247,23 @@ def test_write_csv_append(tmp_path):
     writers.write_csv(df, str(tmp_path), "replaced.csv")
     writers.write_csv(df, str(tmp_path), "replaced.csv")
     assert len(pd.read_csv(tmp_path / "replaced.csv")) == 1
+
+
+def test_run_grat_logs_missing_transfers_once(tmp_path, caplog):
+    with caplog.at_level(logging.WARNING):
+        run_grat(
+            [],
+            {},
+            None,
+            {},
+            None,
+            years=[],
+            reports=["daily_water_transfer_by_sustain_zone_report"],
+            output_parent=str(tmp_path),
+            zip_output=False,
+        )
+
+    assert caplog.text.count("No transfer list provided") == 1
 
 
 def test_check_output_path_length(tmp_path):

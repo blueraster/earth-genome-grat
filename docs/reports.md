@@ -28,6 +28,8 @@ skipped (with a log line) rather than failing the run when it's missing:
 - No bottlenecks → `NEEDS_BOTTLENECKS` reports are skipped.
 - No transfer list → `NEEDS_TRANSFERS` reports are skipped.
 
+`run_grat` logs each skip once, before the run starts.
+
 ## How a run produces reports (`selector.py`)
 
 Two entry points, called once each per run:

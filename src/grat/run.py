@@ -94,6 +94,15 @@ def run_grat(
         ValueError: on Windows, `output_parent` is too long for the report paths.
     """
     names = catalog.expand(reports)
+
+    # report_picker skips these every year; say so once here
+    skipped = names & catalog.NEEDS_BOTTLENECKS if raw_bottlenecks is None else set()
+    if skipped:
+        logger.info("No bottlenecks provided, skipping %s", ", ".join(sorted(skipped)))
+    skipped = names & catalog.NEEDS_TRANSFERS if not model_kwargs.get("transfer_goals") else set()
+    if skipped:
+        logger.warning("No transfer list provided, skipping %s", ", ".join(sorted(skipped)))
+
     if os.name == "nt":
         check_output_path_length(output_parent)
     output_folder = construct_output_folder_name(output_parent)
