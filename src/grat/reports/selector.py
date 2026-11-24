@@ -79,16 +79,11 @@ def report_picker(
     logger.info("Generating reports")
     wanted = catalog.expand(names)
 
+    # run_grat logs these skips once per run
     if bottlenecks is None:
-        skipped = wanted & catalog.NEEDS_BOTTLENECKS
-        if skipped:
-            logger.info("No bottlenecks provided, skipping %s", ", ".join(sorted(skipped)))
         wanted -= catalog.NEEDS_BOTTLENECKS
 
     if transfer_list is None:
-        skipped = wanted & catalog.NEEDS_TRANSFERS
-        if skipped:
-            logger.warning("No transfer list provided, skipping %s", ", ".join(sorted(skipped)))
         wanted -= catalog.NEEDS_TRANSFERS
 
     def publish(df, key, folder=output_folder):
