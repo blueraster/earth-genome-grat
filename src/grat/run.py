@@ -23,11 +23,12 @@ held anything in memory::
 """
 
 import logging
+import os
 
 from grat.model.engine import start_analysis
 from grat.reports import catalog
 from grat.reports.selector import post_process, report_picker
-from grat.reports.writers import construct_output_folder_name, zip_output_folder
+from grat.reports.writers import check_output_path_length, construct_output_folder_name, zip_output_folder
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +91,11 @@ def run_grat(
 
     Raises:
         KeyError: a report name is not in the catalog.
+        ValueError: on Windows, `output_parent` is too long for the report paths.
     """
     names = catalog.expand(reports)
+    if os.name == "nt":
+        check_output_path_length(output_parent)
     output_folder = construct_output_folder_name(output_parent)
     logger.info("Writing reports to %s", output_folder)
 

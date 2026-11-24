@@ -247,6 +247,13 @@ def test_write_csv_append(tmp_path):
     assert len(pd.read_csv(tmp_path / "replaced.csv")) == 1
 
 
+def test_check_output_path_length(tmp_path):
+    writers.check_output_path_length(str(tmp_path))
+
+    with pytest.raises(ValueError, match="characters shorter"):
+        writers.check_output_path_length(str(tmp_path / ("x" * 250)))
+
+
 def test_post_process_monthly_reports_with_null_sort_index(tmp_path):
     # EG-179: nothing in a run calls sort_sites, so every sortIndex is written blank,
     # and reading it back as int broke reports 06 and 07

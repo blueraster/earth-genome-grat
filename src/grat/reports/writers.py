@@ -8,6 +8,8 @@ from typing import NamedTuple
 
 import pandas as pd
 
+from grat.reports.catalog import YEAR_SUBFOLDER
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,6 +61,41 @@ REPORT_FILES: dict[str, ReportFile] = {
     "total_by_sustainability_zone": ReportFile("temp_totalBySustainabilityZone.csv"),
     "total_by_district": ReportFile("temp_totalByDistrict.csv"),
 }
+
+
+# Windows' default MAX_PATH is 260, which includes the terminating null
+WINDOWS_MAX_PATH = 259
+
+
+def check_output_path_length(output_parent, max_length=WINDOWS_MAX_PATH):
+    """Fails early if the longest report path under `output_parent` would be too long.
+
+    Without this, the run gets as far as writing the first per-year report and then
+    raises a `FileNotFoundError` that doesn't say why.
+
+    Args:
+        output_parent: directory the timestamped results folder will be created in.
+        max_length: longest path allowed. Defaults to Windows' limit.
+
+    Raises:
+        ValueError: the longest report path would be over `max_length`.
+    """
+    # same length as a real results folder and year subfolder
+    results_folder = os.path.join(os.path.abspath(output_parent), "results_00000000000000")
+    year_folder = os.path.join(results_folder, "0000")
+    longest = max(
+        (
+            os.path.join(year_folder if key in YEAR_SUBFOLDER else results_folder, f.filename)
+            for key, f in REPORT_FILES.items()
+        ),
+        key=len,
+    )
+
+    if len(longest) > max_length:
+        raise ValueError(
+            f"Report paths would be up to {len(longest)} characters, over the {max_length}-character limit "
+            f"(e.g. {longest}). Use an output_parent at least {len(longest) - max_length} characters shorter."
+        )
 
 
 def construct_output_folder_name(path_to_folder: str):
