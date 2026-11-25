@@ -25,6 +25,12 @@ result["reports"]  # the report names that were produced
 df = read_report(result["output_folder"], "annual_summary_recharge")
 ```
 
+`sites` should already be sorted into processing order with
+`grat.model.sorters.sort_sites`. `run_grat` runs every water year in `wafr` unless you
+pass `years`. The
+[Oak Valley walkthrough](https://github.com/blueraster/earth-genome-grat/blob/main/examples/oak_valley_walkthrough.ipynb)
+notebook loads the sample data and shows every step.
+
 ## Where to go next
 
 - [Model guide](model.md) — sites, allocation order, bottlenecks, transfers, and

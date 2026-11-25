@@ -65,8 +65,8 @@ percolation from canals and basins into recorded groundwater recharge.
 - `engine.process_year(...)` — runs one water year against a site list (**mutated in
   place**) and returns its results. Use this directly to drive the loop yourself and
   work with the resulting objects, without writing anything to disk.
-- `engine.start_analysis(...)` — runs a span of years (default 2001–2099, see
-  `constants.DEFAULT_YEARS`). Each year runs against a deep copy of the inputs, so
+- `engine.start_analysis(...)` — runs a span of years (default: every year in
+  the WAFR data). Each year runs against a deep copy of the inputs, so
   years are independent and the original `raw_sites`/`raw_wafr`/`raw_bottlenecks` are
   left untouched. Nothing is returned — each year's results are handed to the
   `on_year` callback (if one was given) and then discarded, so a long run never holds
@@ -103,34 +103,10 @@ turns its output into reports in one call — see the top-level
 - `sorters.py` — `sort_sites` puts sites into processing order (by RSI score, RMA
   rank, or a test scenario, then grouped by recharge type);
   `group_sites_by_recharge_type` splits an already-sorted list into the four
-  sublists the daily loop works through; `mlrp_sorter` converts top-ranked acreage
-  per agency to the MLRP crop.
+  sublists the daily loop works through; `mlrp_sorter` converts a share of each
+  agency's acreage to the MLRP crop, lowest `mlrp_score` first.
 - `transfers.py` — `calc_transfer_limits` turns each district's transfer goal
   (a threshold plus either a percentage or a flat acre-foot volume) into its yearly
   transfer budget.
 - `constants.py` — shared constants: `DAYS_PER_WATER_YEAR`, `CFS_TO_ACRE_FEET_PER_DAY`,
-  `DEFAULT_CFS_LIMIT`, `DEFAULT_YEARS`, `DEFAULT_IRRIGATION_DAYS`.
-
-## Irrigation season
-
-`DEFAULT_IRRIGATION_DAYS` is the default irrigation season: zero-indexed days of the
-water year from April 1st through October 31st (days 0-30 and 182-365). Canals accept
-no WAFR on those days, and bottlenecks switch to their irrigation capacity. It is applied
-when the loaders build canals and bottlenecks, so pass `irrigation_days` to a loader to
-use a different season:
-
-```python
-from grat.loaders.get_bottlenecks import load_bottlenecks
-from grat.loaders.get_canals import load_canals
-
-canals = load_canals("canals.csv")  # default season
-canals = load_canals("canals.csv", irrigation_days=list(range(0, 31)))  # October only
-canals = load_canals("canals.csv", irrigation_days=[])  # no irrigation season
-
-bottlenecks = load_bottlenecks("bottlenecks.csv", irrigation_days=list(range(0, 31)))
-```
-
-Use the same season for canals and bottlenecks in a run.
-
-The model classes (`sites.Canal`, `bottlenecks.Bottleneck`) take the same argument but
-default to no irrigation season when it is omitted.
+  `DEFAULT_CFS_LIMIT`, `DEFAULT_IRRIGATION_DAYS`.

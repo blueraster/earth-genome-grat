@@ -5,8 +5,8 @@ json-ready series the frontend charts off of.
 
 ## The catalog (`catalog.py`)
 
-Reports are asked for **by name**, not by calling functions directly. Every name is a
-key of `writers.REPORT_FILES`.
+Reports are asked for **by name**, not by calling functions directly. Every csv
+report name is a key of `writers.REPORT_FILES`, which gives its filename.
 
 - `ALL_REPORTS` — every report name that can be requested (`CSV_REPORTS |
   FRONTEND_SERIES`).
@@ -23,7 +23,7 @@ reports actually need get built — the catalog's `NEEDS_*` sets are what
 `selector.report_picker` and `selector.post_process` check to decide that.
 
 Two model inputs are optional, and the reports that depend on them are silently
-skipped (with a log line) rather than failing the run when it's missing:
+skipped (with a log line) rather than failing the run when that input is missing:
 
 - No bottlenecks → `NEEDS_BOTTLENECKS` reports are skipped.
 - No transfer list → `NEEDS_TRANSFERS` reports are skipped.
@@ -58,7 +58,7 @@ yourself, as shown in [model.md](model.md#running-the-model).
 - `write_report(df, output_folder, key)` / `read_report(output_folder, key, year=None,
   dtype=None)` — write or read a single report by its catalog name. `year` is only
   needed for the two reports written into a per-year subfolder (see below).
-- `REPORT_FILES` — maps every report name (plus the internal intermediates) to the
+- `REPORT_FILES` — maps every csv report name (plus the internal intermediates) to the
   csv filename it's written as, and whether that file is appended to across water
   years (`append=True`, the default) or written fresh each time.
 - `construct_output_folder_name(path_to_folder)` — creates a uniquely-named,

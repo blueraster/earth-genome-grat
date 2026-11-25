@@ -15,9 +15,6 @@ CFS_TO_ACRE_FEET_PER_DAY = 1.983
 # Turnout flow rate (cubic-feet per second) assumed for a farm that has none.
 DEFAULT_CFS_LIMIT = 15
 
-# Water years `start_analysis` runs when the caller does not choose a span.
-DEFAULT_YEARS = range(2001, 2100)
-
 # Zero-indexed days of the water year (DOWY) in the irrigation season, when
 # canals are assumed full for delivery and accept no WAFR. The season runs
 # April 1st (DOWY 183) through October 31st (DOWY 31), wrapping the start of

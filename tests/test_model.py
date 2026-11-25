@@ -1466,3 +1466,21 @@ class TestUnsortedSitesWarning:
         with caplog.at_level(logging.WARNING):
             engine.start_analysis(raw_sites, {}, None, {}, None, years=[])
         assert "sortIndex" not in caplog.text
+
+
+class TestDefaultYears:
+    def test_runs_every_year_in_wafr_by_default(self):
+        raw_sites = []
+        raw_wafr = {year: {"River": [0.0] * 366} for year in (1970, 1969, 1971)}
+        years_run = []
+        engine.start_analysis(raw_sites, raw_wafr, None, {}, None, on_year=lambda year, **_: years_run.append(year))
+        assert years_run == [1969, 1970, 1971]
+
+    def test_years_given_are_used(self):
+        raw_sites = []
+        raw_wafr = {year: {"River": [0.0] * 366} for year in (1969, 1970, 1971)}
+        years_run = []
+        engine.start_analysis(
+            raw_sites, raw_wafr, None, {}, None, years=[1970], on_year=lambda year, **_: years_run.append(year)
+        )
+        assert years_run == [1970]
