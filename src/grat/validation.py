@@ -277,6 +277,8 @@ def check_sites(
         )
 
     ofr_sites = [s for s in sites if s.get("recharge_type") == "OFR"]
+    # in-lieu recharge only happens on fields - a basin's in_lieu_crop is never read
+    in_lieu_sites = [s for s in sites if s.get("recharge_type") != "Basin"]
 
     neither_crop = [s.get("grat_id") for s in ofr_sites if not s.get("crop") and not s.get("in_lieu_crop")]
     if neither_crop:
@@ -293,7 +295,11 @@ def check_sites(
 
     if valid_il_crops is not None:
         bad_il_crops = _safe_sorted(
-            {s["in_lieu_crop"] for s in sites if s.get("in_lieu_crop") and s["in_lieu_crop"] not in valid_il_crops}
+            {
+                s["in_lieu_crop"]
+                for s in in_lieu_sites
+                if s.get("in_lieu_crop") and s["in_lieu_crop"] not in valid_il_crops
+            }
         )
         if bad_il_crops:
             report.warning(
@@ -328,7 +334,7 @@ def check_sites(
         missing_il_pairs = _safe_sorted(
             {
                 (s["in_lieu_crop"], _in_lieu_region_key(s.get("region_number")))
-                for s in sites
+                for s in in_lieu_sites
                 if s.get("in_lieu_crop") in crop_calendar_in_lieu
                 and s.get("region_number") is not None
                 and _in_lieu_region_key(s["region_number"]) not in crop_calendar_in_lieu[s["in_lieu_crop"]]

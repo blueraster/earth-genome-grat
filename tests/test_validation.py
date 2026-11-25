@@ -186,6 +186,18 @@ class TestCheckSites:
         )
         assert any("In_lieu_crop/region_number combination" in i.message for i in report.errors)
 
+    def test_basin_in_lieu_crop_is_not_checked(self):
+        # basins never take part in in-lieu recharge, so their in_lieu_crop is never read
+        report = ValidationReport()
+        basin = {**GOOD_SITE, "recharge_type": "Basin", "crop": "Basin A", "in_lieu_crop": "Basin A"}
+        check_sites(report, [basin], valid_il_crops=["Almonds"], crop_calendar_in_lieu={"Almonds": {"8": [0.1]}})
+        assert not any("In-lieu crop type" in i.message for i in report.warnings)
+
+    def test_field_in_lieu_crop_missing_from_calendar_is_a_warning(self):
+        report = ValidationReport()
+        check_sites(report, [{**GOOD_SITE, "crop": None, "in_lieu_crop": "Wheat"}], valid_il_crops=["Almonds"])
+        assert any("['Wheat']" in i.message for i in report.warnings)
+
     def test_in_lieu_region_number_normalized_like_build_sites(self):
         # region_number=8.0 (a float with no fractional part) must match calendar key "8",
         # the same way build_sites normalizes it before Farm.get_site_volume looks it up.

@@ -14,7 +14,6 @@ import logging
 import pickle
 from time import time
 
-from grat.model.constants import DEFAULT_YEARS
 from grat.model.sorters import group_sites_by_recharge_type
 from grat.model.transfers import calc_transfer_limits
 
@@ -484,7 +483,8 @@ def start_analysis(
             recharge, indexed as `[crop][soil_type][day]`.
         precip: daily precipitation depth (decimal-feet) for each year, indexed
             as `[year][precip_grid][day]`. `None` skips precipitation.
-        years: water years to run. Defaults to 2001-2099.
+        years: water years to run. Defaults to every year in `raw_wafr`, in
+            order.
         crop_calendar_in_lieu: accepted application rate (feet per day) for
             in-lieu recharge, indexed as `[crop][region_number][day]`.
         use_in_lieu: include in-lieu recharge.
@@ -509,7 +509,7 @@ def start_analysis(
         transfer_goals = {}
 
     if years is None:
-        years = DEFAULT_YEARS
+        years = sorted(raw_wafr)
 
     unsorted = sum(1 for site in raw_sites if site.sort_index is None)
     if unsorted:
